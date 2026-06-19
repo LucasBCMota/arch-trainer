@@ -1,4 +1,6 @@
-from pydantic import field_validator
+import secrets
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,6 +8,19 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/arch_trainer"
+
+    # Shared password gating the token-spending API. If unset, auth is DISABLED
+    # (convenient for local dev) — set it in production so randoms can't burn keys.
+    app_password: str | None = None
+    # Signs the session cookie. Defaults to a random per-boot secret (you'll just
+    # need to log in again after a restart); set it to keep sessions across reboots.
+    session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+
+    @field_validator("session_secret")
+    @classmethod
+    def _secret_fallback(cls, v: str) -> str:
+        # An explicit empty env var must not become an empty signing key.
+        return v or secrets.token_urlsafe(32)
 
     @field_validator("database_url")
     @classmethod

@@ -1,13 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "./api.js";
 import Setup from "./views/Setup.jsx";
 import Answering from "./views/Answering.jsx";
 import Result from "./views/Result.jsx";
 import Dashboard from "./views/Dashboard.jsx";
+import Login from "./views/Login.jsx";
 
 export default function App() {
+  const [auth, setAuth] = useState(null); // null = unknown, false = needs login, true = ok
   const [view, setView] = useState("setup");
   const [scenario, setScenario] = useState(null);
   const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    api
+      .me()
+      .then((m) => setAuth(m.authenticated))
+      .catch(() => setAuth(false));
+  }, []);
 
   function startAnswering(sc) {
     setScenario(sc);
@@ -22,6 +32,11 @@ export default function App() {
     setResult(null);
     setView("setup");
   }
+  async function logout() {
+    await api.logout().catch(() => {});
+    setAuth(false);
+    reset();
+  }
 
   return (
     <div className="app">
@@ -29,27 +44,35 @@ export default function App() {
         <h1>
           architecture<span className="dot">.</span>trainer
         </h1>
-        <nav>
-          <button
-            className={view === "setup" || view === "answering" || view === "result" ? "active" : ""}
-            onClick={reset}
-          >
-            train
-          </button>
-          <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>
-            dashboard
-          </button>
-        </nav>
+        {auth && (
+          <nav>
+            <button
+              className={view !== "dashboard" ? "active" : ""}
+              onClick={reset}
+            >
+              train
+            </button>
+            <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>
+              dashboard
+            </button>
+            <button onClick={logout}>logout</button>
+          </nav>
+        )}
       </header>
 
-      {view === "setup" && <Setup onScenario={startAnswering} />}
-      {view === "answering" && (
-        <Answering scenario={scenario} onResult={showResult} onCancel={reset} />
+      {auth === null && <p className="muted">Loading…</p>}
+      {auth === false && <Login onAuthed={() => setAuth(true)} />}
+
+      {auth && (
+        <>
+          {view === "setup" && <Setup onScenario={startAnswering} />}
+          {view === "answering" && (
+            <Answering scenario={scenario} onResult={showResult} onCancel={reset} />
+          )}
+          {view === "result" && <Result scenario={scenario} result={result} onNext={reset} />}
+          {view === "dashboard" && <Dashboard />}
+        </>
       )}
-      {view === "result" && (
-        <Result scenario={scenario} result={result} onNext={reset} />
-      )}
-      {view === "dashboard" && <Dashboard />}
     </div>
   );
 }

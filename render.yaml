@@ -16,6 +16,13 @@ services:
         fromDatabase:
           name: arch-trainer-db
           property: connectionString
+      # Shared password gating the API — REQUIRED in production so the public URL
+      # can't burn your tokens. Render prompts for it at blueprint apply.
+      - key: APP_PASSWORD
+        sync: false
+      # Signs the session cookie; Render generates + persists a strong value.
+      - key: SESSION_SECRET
+        generateValue: true
       # Set these in the Render dashboard (sync: false = not stored in the blueprint):
       - key: LLM_MODEL
         sync: false

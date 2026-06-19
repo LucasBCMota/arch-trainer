@@ -5,6 +5,7 @@ description = "Architecture Reasoning Trainer — backend"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
+    "itsdangerous>=2.2",
     "uvicorn[standard]>=0.32",
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.2",

@@ -16,6 +16,10 @@ async function req(path, options = {}) {
 }
 
 export const api = {
+  me: () => req("/me"),
+  login: (password) =>
+    req("/login", { method: "POST", body: JSON.stringify({ password }) }),
+  logout: () => req("/logout", { method: "POST" }),
   models: () => req("/models"),
   createScenario: (body) =>
     req("/scenarios", { method: "POST", body: JSON.stringify(body) }),
