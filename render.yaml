@@ -1,8 +1,6 @@
-databases:
-  - name: arch-trainer-db
-    databaseName: arch_trainer
-    plan: free
-
+# Database is hosted externally on Neon (permanent free tier). Paste its
+# connection string into DATABASE_URL in the Render dashboard at apply time —
+# config.py normalizes it to the psycopg3 driver, and migrations run on boot.
 services:
   - type: web
     name: arch-trainer
@@ -13,9 +11,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: arch-trainer-db
-          property: connectionString
+        sync: false
       # Shared password gating the API — REQUIRED in production so the public URL
       # can't burn your tokens. Render prompts for it at blueprint apply.
       - key: APP_PASSWORD
