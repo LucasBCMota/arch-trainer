@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+
+# Claude Code local config
+.claude/
+settings.local.json
+
+# Env / secrets
+.env
+backend/.env
+
+# Node / frontend build
+node_modules/
+frontend/dist/
+backend/app/static/
+
+# Claude memory files (per CLAUDE.md these are gitignored)
+*.claude.md
+
+# WSL / editor cruft
+*:Zone.Identifier
+.DS_Store
