@@ -102,3 +102,54 @@ class ModelsInfo(BaseModel):
     current: str
     available: list[str]
     suggested: dict[str, list[str]]
+
+
+# ---- Study notes / artifacts ----
+from .models import StudyNoteKind  # noqa: E402
+
+
+class StudyNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    kind: StudyNoteKind
+    topic: str
+    content_md: str
+    model: str
+    pinned: bool
+
+
+class StudyCreate(BaseModel):
+    topic: str
+    model: str | None = None  # override LLM_MODEL for this generation
+
+
+class StudyImport(BaseModel):
+    topic: str
+    kind: StudyNoteKind
+    content_md: str
+    source: str | None = None  # origin label, e.g. "claude.ai opus"; stored in `model`
+
+
+class StudyEdit(BaseModel):
+    topic: str | None = None
+    content_md: str | None = None
+
+
+class PinBody(BaseModel):
+    pinned: bool
+
+
+class ReferenceArtifactOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    difficulty: Difficulty
+    focus_area: str
+    title: str
+    problem: str
+    model: str
+    pinned: bool
+    reference_solution: ReferenceSolution

@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -23,6 +24,11 @@ class Difficulty(str, enum.Enum):
     principal = "principal"
 
 
+class StudyNoteKind(str, enum.Enum):
+    deep_dive = "deep_dive"
+    cheat_sheet = "cheat_sheet"
+
+
 class Scenario(Base):
     __tablename__ = "scenarios"
 
@@ -36,6 +42,7 @@ class Scenario(Base):
     constraints: Mapped[list] = mapped_column(JSONB, default=list)
     reference_solution: Mapped[dict] = mapped_column(JSONB, default=dict)
     model: Mapped[str] = mapped_column(String(128))
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="scenario")
 
@@ -66,3 +73,16 @@ class PatternGap(Base):
     what_they_described: Mapped[str] = mapped_column(Text)
 
     session: Mapped["Session"] = relationship(back_populates="pattern_gaps")
+
+
+class StudyNote(Base):
+    __tablename__ = "study_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    kind: Mapped[StudyNoteKind] = mapped_column(Enum(StudyNoteKind, name="studynotekind"))
+    topic: Mapped[str] = mapped_column(Text)
+    content_md: Mapped[str] = mapped_column(Text)
+    # Origin: an LLM model id (e.g. "openrouter:...") or a manual source label.
+    model: Mapped[str] = mapped_column(String(128))
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

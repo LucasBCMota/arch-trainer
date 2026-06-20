@@ -326,3 +326,108 @@ td.count {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+
+/* shared text input */
+.text-input {
+  flex: 1;
+  min-width: 180px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+/* tabs (artifacts) */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.tab.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* note library list */
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.note-list li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+button.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* rendered markdown */
+.markdown {
+  font-size: 15px;
+  line-height: 1.65;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  margin: 20px 0 8px;
+}
+.markdown h2 {
+  font-size: 18px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 5px;
+}
+.markdown h3 {
+  font-size: 15px;
+}
+.markdown code {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+.markdown pre {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+.markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+.markdown a {
+  color: var(--accent);
+}
+.markdown blockquote {
+  border-left: 3px solid var(--border);
+  margin: 12px 0;
+  padding-left: 14px;
+  color: var(--muted);
+}
+.markdown table {
+  margin: 12px 0;
+}

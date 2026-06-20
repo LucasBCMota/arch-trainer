@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 from .. import services
 from ..db import get_db
 from ..models import Scenario
-from ..schemas import ScenarioCreate, ScenarioOut, ScenarioRevealOut
+from ..schemas import PinBody, ScenarioCreate, ScenarioOut, ScenarioRevealOut
 
 router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
 
@@ -28,3 +28,16 @@ def get_scenario(
     if reveal:
         return ScenarioRevealOut.model_validate(scenario)
     return ScenarioOut.model_validate(scenario)
+
+
+@router.post("/{scenario_id}/pin", response_model=ScenarioOut)
+def pin_scenario(
+    scenario_id: uuid.UUID, payload: PinBody, db: DbSession = Depends(get_db)
+) -> Scenario:
+    scenario = db.get(Scenario, scenario_id)
+    if scenario is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    scenario.pinned = payload.pinned
+    db.commit()
+    db.refresh(scenario)
+    return scenario

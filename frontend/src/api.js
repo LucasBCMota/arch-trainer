@@ -32,4 +32,21 @@ export const api = {
   patternGaps: () => req("/stats/pattern-gaps"),
   summary: () => req("/stats/summary"),
   exportUrl: "/api/sessions/export",
+
+  // study + artifacts
+  study: (topic, model) =>
+    req("/study", { method: "POST", body: JSON.stringify({ topic, model: model || null }) }),
+  cheatsheet: (topic, model) =>
+    req("/cheatsheets", { method: "POST", body: JSON.stringify({ topic, model: model || null }) }),
+  importNote: (body) =>
+    req("/study-notes", { method: "POST", body: JSON.stringify(body) }),
+  studyNotes: (params = "") => req(`/study-notes${params}`),
+  updateNote: (id, body) =>
+    req(`/study-notes/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  pinNote: (id, pinned) =>
+    req(`/study-notes/${id}/pin`, { method: "POST", body: JSON.stringify({ pinned }) }),
+  deleteNote: (id) => req(`/study-notes/${id}`, { method: "DELETE" }),
+  references: () => req("/artifacts/references"),
+  pinScenario: (id, pinned) =>
+    req(`/scenarios/${id}/pin`, { method: "POST", body: JSON.stringify({ pinned }) }),
 };

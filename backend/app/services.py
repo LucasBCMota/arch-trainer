@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from . import llm, prompts
 from .config import settings
-from .models import PatternGap, Scenario, Session
+from .models import PatternGap, Scenario, Session, StudyNote, StudyNoteKind
 from .schemas import ScenarioCreate, SessionCreate
 
 
@@ -81,3 +81,25 @@ def judge_answer(db: DbSession, payload: SessionCreate, scenario: Scenario) -> S
     db.commit()
     db.refresh(session)
     return session
+
+
+def generate_study_note(
+    db: DbSession, topic: str, kind: StudyNoteKind, model: str | None
+) -> StudyNote:
+    """AI-generate a Markdown study note or cheat-sheet and store it.
+
+    Markdown output (not JSON), so this never goes through parse_model_json —
+    robust even on small/free models.
+    """
+    model = model or settings.llm_model
+    if kind == StudyNoteKind.cheat_sheet:
+        system, user = prompts.CHEATSHEET_SYSTEM, prompts.cheatsheet_user_prompt(topic)
+    else:
+        system, user = prompts.STUDY_SYSTEM, prompts.study_user_prompt(topic)
+
+    content = llm.complete(system, user, model=model).strip()
+    note = StudyNote(kind=kind, topic=topic, content_md=content, model=model)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return note

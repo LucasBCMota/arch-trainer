@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .auth import require_auth
 from .auth import router as auth_router
 from .config import settings
-from .routers import models, scenarios, sessions, stats
+from .routers import library, models, scenarios, sessions, stats
 
 app = FastAPI(title="Architecture Reasoning Trainer")
 
@@ -34,6 +34,7 @@ app.include_router(scenarios.router, dependencies=_protected)
 app.include_router(sessions.router, dependencies=_protected)
 app.include_router(stats.router, dependencies=_protected)
 app.include_router(models.router, dependencies=_protected)
+app.include_router(library.router, dependencies=_protected)
 
 
 # Serve the built frontend (Vite dist copied here in the Docker image). In local

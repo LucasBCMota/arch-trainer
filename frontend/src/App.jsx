@@ -4,6 +4,8 @@ import Setup from "./views/Setup.jsx";
 import Answering from "./views/Answering.jsx";
 import Result from "./views/Result.jsx";
 import Dashboard from "./views/Dashboard.jsx";
+import Study from "./views/Study.jsx";
+import Artifacts from "./views/Artifacts.jsx";
 import Login from "./views/Login.jsx";
 
 export default function App() {
@@ -47,10 +49,16 @@ export default function App() {
         {auth && (
           <nav>
             <button
-              className={view !== "dashboard" ? "active" : ""}
+              className={["setup", "answering", "result"].includes(view) ? "active" : ""}
               onClick={reset}
             >
               train
+            </button>
+            <button className={view === "study" ? "active" : ""} onClick={() => setView("study")}>
+              study
+            </button>
+            <button className={view === "artifacts" ? "active" : ""} onClick={() => setView("artifacts")}>
+              artifacts
             </button>
             <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>
               dashboard
@@ -70,6 +78,8 @@ export default function App() {
             <Answering scenario={scenario} onResult={showResult} onCancel={reset} />
           )}
           {view === "result" && <Result scenario={scenario} result={result} onNext={reset} />}
+          {view === "study" && <Study />}
+          {view === "artifacts" && <Artifacts />}
           {view === "dashboard" && <Dashboard />}
         </>
       )}

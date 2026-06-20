@@ -79,6 +79,50 @@ JUDGE_JSON_SHAPE = """{
 }"""
 
 
+# ---- Study / cheat-sheet generation (Markdown output, NOT JSON) ----
+# Prose Markdown is far more robust on small/free models than the strict nested
+# JSON the scenario generator needs — so these never go through parse_model_json.
+
+STUDY_SYSTEM = (
+    "You are a principal engineer writing a focused study note on a named software-architecture "
+    "pattern or concept, for an engineer practicing system design. Be concrete and specific; prefer "
+    "real examples over abstractions. Output GitHub-flavored Markdown only — no preamble, no code "
+    "fences around the whole document."
+)
+
+
+def study_user_prompt(topic: str) -> str:
+    return (
+        f"Write a study note on: {topic}\n\n"
+        "Use these Markdown sections (## headings):\n"
+        "## What it is\n"
+        "## When to use it (and when not to)\n"
+        "## Canonical shape\n"
+        "## Key trade-offs\n"
+        "## Failure modes it addresses\n"
+        "## Commonly confused with\n"
+        "## Worked mini-example\n"
+    )
+
+
+CHEATSHEET_SYSTEM = (
+    "You are a principal engineer writing a terse one-page quick-reference card for a software-"
+    "architecture pattern. Dense and scannable, no fluff. Output GitHub-flavored Markdown only."
+)
+
+
+def cheatsheet_user_prompt(topic: str) -> str:
+    return (
+        f"Write a one-page cheat-sheet for: {topic}\n\n"
+        "Keep it tight. Use these Markdown sections (## headings):\n"
+        "## Definition (one sentence)\n"
+        "## Use when\n"
+        "## Shape (3-5 bullets)\n"
+        "## Pitfalls\n"
+        "## Related patterns\n"
+    )
+
+
 def judge_user_prompt(scenario_block: str, reference_block: str, candidate_answer: str) -> str:
     return (
         "Judge the candidate's architectural reasoning.\n\n"
