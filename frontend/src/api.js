@@ -4,11 +4,14 @@ async function req(path, options = {}) {
     ...options,
   });
   if (!res.ok) {
-    let detail;
+    // Read the body exactly once (a fetch body can't be read twice), then try
+    // to pull `detail` out of JSON, falling back to the raw text.
+    const body = await res.text();
+    let detail = body;
     try {
-      detail = (await res.json()).detail;
+      detail = JSON.parse(body).detail ?? body;
     } catch {
-      detail = await res.text();
+      // body wasn't JSON — keep the raw text
     }
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }

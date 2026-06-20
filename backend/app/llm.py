@@ -91,9 +91,17 @@ def complete(system: str, user: str, *, model: str | None = None) -> str:
             status_code=400,
             detail=f"No API key configured for provider {provider!r}. Set its *_API_KEY env var.",
         )
-    if provider == "anthropic":
-        return _complete_anthropic(model_id, system, user)
-    return _complete_openai_compatible(provider, model_id, system, user)
+    try:
+        if provider == "anthropic":
+            return _complete_anthropic(model_id, system, user)
+        return _complete_openai_compatible(provider, model_id, system, user)
+    except HTTPException:
+        raise
+    except Exception as exc:  # provider rejected the model/key, network error, etc.
+        raise HTTPException(
+            status_code=502,
+            detail=f"{provider} call failed for model {model_id!r}: {exc}",
+        ) from exc
 
 
 def parse_model_json(text: str) -> dict:
