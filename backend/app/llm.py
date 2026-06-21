@@ -52,7 +52,11 @@ def _split_model(model: str) -> tuple[str, str]:
 def _complete_anthropic(model_id: str, system: str, user: str) -> str:
     import anthropic
 
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = anthropic.Anthropic(
+        api_key=settings.anthropic_api_key,
+        timeout=settings.llm_timeout,
+        max_retries=settings.llm_max_retries,
+    )
     resp = client.messages.create(
         model=model_id,
         max_tokens=MAX_TOKENS,
@@ -70,7 +74,12 @@ def _complete_openai_compatible(
     base_url = (
         settings.openrouter_base_url if provider == "openrouter" else settings.openai_base_url
     )
-    client = OpenAI(api_key=_key_for(provider), base_url=base_url)
+    client = OpenAI(
+        api_key=_key_for(provider),
+        base_url=base_url,
+        timeout=settings.llm_timeout,
+        max_retries=settings.llm_max_retries,
+    )
     resp = client.chat.completions.create(
         model=model_id,
         max_tokens=MAX_TOKENS,
@@ -98,6 +107,16 @@ def complete(system: str, user: str, *, model: str | None = None) -> str:
     except HTTPException:
         raise
     except Exception as exc:  # provider rejected the model/key, network error, etc.
+        # A timeout is the common failure with slow/queued free models — surface
+        # it clearly so the UI shows a real message instead of a dropped socket.
+        if exc.__class__.__name__ in ("APITimeoutError", "Timeout", "ReadTimeout"):
+            raise HTTPException(
+                status_code=504,
+                detail=(
+                    f"Model {model_id!r} timed out after {settings.llm_timeout:.0f}s. "
+                    "Free/queued models are often too slow to judge — try a faster paid model."
+                ),
+            ) from exc
         raise HTTPException(
             status_code=502,
             detail=f"{provider} call failed for model {model_id!r}: {exc}",

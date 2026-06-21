@@ -1,8 +1,29 @@
 async function req(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  // Abort long-hung requests (e.g. a slow model behind a proxy) with a clear
+  // message instead of a bare "Failed to fetch".
+  const controller = new AbortController();
+  const timeoutMs = options.timeoutMs ?? 180000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(`/api${path}`, {
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      ...options,
+    });
+  } catch (e) {
+    if (e.name === "AbortError") {
+      throw new Error(
+        `Request timed out after ${Math.round(timeoutMs / 1000)}s — the model may be too slow. ` +
+          "Try a faster model."
+      );
+    }
+    throw new Error(
+      "Failed to reach the server (network error, or the request was dropped mid-flight)."
+    );
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     // Read the body exactly once (a fetch body can't be read twice), then try
     // to pull `detail` out of JSON, falling back to the raw text.
