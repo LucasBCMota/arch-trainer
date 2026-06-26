@@ -62,11 +62,12 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    # Per-call LLM timeout (seconds) and retry cap. Keep below any proxy idle
-    # timeout so a slow/queued model returns a clean 504 instead of the socket
-    # being dropped (which shows up in the browser as "Failed to fetch").
-    llm_timeout: float = 120.0
-    llm_max_retries: int = 1
+    # Per-call LLM timeout (seconds) and retry cap. Keep the *effective* wait
+    # (timeout × (retries+1)) below the frontend's 180s abort so a slow/queued
+    # model returns a clean 504 ("model too slow") instead of the client aborting.
+    # Retries are 0 because retrying a *timed-out* model just doubles the wait.
+    llm_timeout: float = 90.0
+    llm_max_retries: int = 0
 
 
 settings = Settings()
