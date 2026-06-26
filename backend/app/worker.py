@@ -11,16 +11,52 @@ locally and on Render's free tier.
 
 import logging
 import threading
+import time
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from . import services
+from .config import settings
 from .db import SessionLocal
 from .models import JobStatus, Scenario, Session
 
 log = logging.getLogger("worker")
 POLL_INTERVAL = 2.0  # seconds between polls when the queue is empty
+RECLAIM_INTERVAL = 60.0  # seconds between stale-job sweeps
 stop_event = threading.Event()
+_last_reclaim = 0.0
+
+
+def reclaim_stale_jobs() -> None:
+    """Drop rows stuck in 'running' beyond the threshold (e.g. the process was
+    paused/restarted mid-job). Such scenarios are empty placeholders and such
+    sessions never finished judging, so they're discarded rather than retried."""
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.stale_job_minutes)
+    db = SessionLocal()
+    try:
+        dropped = 0
+        for model in (Scenario, Session):
+            res = db.execute(
+                delete(model).where(model.status == JobStatus.running, model.created_at < cutoff)
+            )
+            dropped += res.rowcount or 0
+        db.commit()
+        if dropped:
+            log.info("reclaimed %d stale running job(s)", dropped)
+    finally:
+        db.close()
+
+
+def _maybe_reclaim() -> None:
+    global _last_reclaim
+    now = time.monotonic()
+    if now - _last_reclaim >= RECLAIM_INTERVAL:
+        _last_reclaim = now
+        try:
+            reclaim_stale_jobs()
+        except Exception:
+            log.exception("stale-job reclaim failed")
 
 
 def _claim(db, model) -> "uuid.UUID | None":  # noqa: F821
@@ -78,6 +114,7 @@ def process_once() -> bool:
 def worker_loop() -> None:
     log.info("job worker started")
     while not stop_event.is_set():
+        _maybe_reclaim()
         try:
             handled = process_once()
         except Exception:  # never let the loop die

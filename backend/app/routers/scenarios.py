@@ -1,22 +1,46 @@
 import uuid
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session as DbSession
 
 from .. import services
 from ..access import assert_owner, assert_visible
 from ..auth import current_user, require_owner
 from ..db import get_db
-from ..models import Scenario, User
+from ..models import JobStatus, Scenario, Session, User
 from ..schemas import (
     PinBody,
     ScenarioCreate,
+    ScenarioListItem,
     ScenarioOut,
     ScenarioRevealOut,
     VisibilityBody,
 )
 
 router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
+
+
+@router.get("", response_model=list[ScenarioListItem])
+def list_my_scenarios(
+    db: DbSession = Depends(get_db), user: User = Depends(current_user)
+) -> list[ScenarioListItem]:
+    # Your own ready scenarios, newest first, flagged with whether you've answered
+    # one — lets the Train screen reopen unanswered ones or re-attempt answered ones.
+    scenarios = list(
+        db.scalars(
+            select(Scenario)
+            .where(Scenario.user_id == user.id, Scenario.status == JobStatus.ready)
+            .order_by(Scenario.created_at.desc())
+        ).all()
+    )
+    answered_ids = set(
+        db.scalars(select(distinct(Session.scenario_id)).where(Session.user_id == user.id)).all()
+    )
+    return [
+        ScenarioListItem(**ScenarioOut.model_validate(s).model_dump(), answered=s.id in answered_ids)
+        for s in scenarios
+    ]
 
 
 @router.post("", response_model=ScenarioOut)

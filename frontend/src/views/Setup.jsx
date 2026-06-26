@@ -19,13 +19,18 @@ export default function Setup({ onScenario, isOwner = true }) {
   const [models, setModels] = useState(null);
   const [model, setModel] = useModelSelection();
   const [gaps, setGaps] = useState([]);
+  const [mine, setMine] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     api.models().then(setModels).catch((e) => setError(e.message));
     api.patternGaps().then((g) => setGaps(g.slice(0, 5))).catch(() => {});
+    api.listScenarios().then(setMine).catch(() => {});
   }, []);
+
+  const unanswered = mine.filter((s) => !s.answered);
+  const answered = mine.filter((s) => s.answered);
 
   async function generate() {
     setLoading(true);
@@ -112,6 +117,47 @@ export default function Setup({ onScenario, isOwner = true }) {
         </div>
         {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
       </div>
+
+      {unanswered.length > 0 && (
+        <div className="panel">
+          <h2>Unanswered scenarios</h2>
+          <p className="muted" style={{ marginTop: -6 }}>
+            Generated but not yet answered (e.g. you closed the tab). Pick up where you left off.
+          </p>
+          <ul className="note-list">
+            {unanswered.map((s) => (
+              <li key={s.id}>
+                <button className="link" onClick={() => onScenario(s)}>
+                  {s.title || "(untitled)"}
+                </button>
+                <span className="muted mono"> · {s.difficulty} · {s.focus_area}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {answered.length > 0 && (
+        <div className="panel">
+          <h2>Re-attempt a scenario</h2>
+          <p className="muted" style={{ marginTop: -6 }}>
+            Answer an old scenario again — it records a fresh attempt, leaving your earlier one intact.
+          </p>
+          <ul className="note-list">
+            {answered.map((s) => (
+              <li key={s.id}>
+                <span>
+                  {s.title || "(untitled)"}
+                  <span className="muted mono"> · {s.difficulty}</span>
+                </span>
+                <button className="ghost" onClick={() => onScenario(s)}>
+                  Answer again
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {gaps.length > 0 && (
         <div className="panel">

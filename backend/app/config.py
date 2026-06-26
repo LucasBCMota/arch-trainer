@@ -70,6 +70,9 @@ class Settings(BaseSettings):
 
     # Run the in-process job worker thread. Disable in tests if needed.
     run_worker: bool = True
+    # Jobs stuck "running" longer than this (e.g. the instance was paused mid-job)
+    # are dropped so they don't linger forever.
+    stale_job_minutes: int = 30
 
 
 settings = Settings()

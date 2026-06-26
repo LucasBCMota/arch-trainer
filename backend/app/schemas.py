@@ -71,6 +71,12 @@ class ScenarioRevealOut(ScenarioOut):
     reference_solution: ReferenceSolution
 
 
+class ScenarioListItem(ScenarioOut):
+    """Your own scenarios, with whether you've answered one — powers resume / re-attempt."""
+
+    answered: bool = False
+
+
 # ---- Sessions ----
 class SessionCreate(BaseModel):
     scenario_id: uuid.UUID

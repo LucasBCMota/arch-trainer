@@ -48,6 +48,7 @@ export const api = {
   models: () => req("/models"),
   createScenario: (body) =>
     req("/scenarios", { method: "POST", body: JSON.stringify(body) }),
+  listScenarios: () => req("/scenarios"),
   getScenario: (id) => req(`/scenarios/${id}`),
   createSession: (body) =>
     req("/sessions", { method: "POST", body: JSON.stringify(body) }),
