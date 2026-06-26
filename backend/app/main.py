@@ -4,23 +4,22 @@ from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import require_auth
-from .auth import router as auth_router
+from .auth import current_user
 from .config import settings
-from .routers import library, models, scenarios, sessions, stats
+from .routers import auth, library, models, scenarios, sessions, stats
 
 app = FastAPI(title="Architecture Reasoning Trainer")
 
-# Signs the session cookie used by the password gate.
+# Signs the httponly session cookie that holds the logged-in user id.
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
     same_site="lax",
-    https_only=False,  # also works over http for local dev
+    https_only=settings.session_https_only,
 )
 
-# Open routes.
-app.include_router(auth_router)
+# Open routes: auth (login/callback/logout/me) + health.
+app.include_router(auth.router)
 
 
 @app.get("/api/health")
@@ -28,8 +27,9 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-# Token-spending / data routes — gated behind the shared password.
-_protected = [Depends(require_auth)]
+# Everything else requires a logged-in user (per-row ownership is enforced inside
+# each handler via the injected current_user).
+_protected = [Depends(current_user)]
 app.include_router(scenarios.router, dependencies=_protected)
 app.include_router(sessions.router, dependencies=_protected)
 app.include_router(stats.router, dependencies=_protected)

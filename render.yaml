@@ -12,13 +12,24 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      # Shared password gating the API — REQUIRED in production so the public URL
-      # can't burn your tokens. Render prompts for it at blueprint apply.
-      - key: APP_PASSWORD
+      # ---- Auth0 (server-side login). Set these in the dashboard at apply. ----
+      - key: AUTH0_DOMAIN
+        sync: false
+      - key: AUTH0_CLIENT_ID
+        sync: false
+      - key: AUTH0_CLIENT_SECRET
+        sync: false
+      # Your app's public URL, e.g. https://arch-trainer.onrender.com (no trailing slash).
+      - key: APP_BASE_URL
+        sync: false
+      # Comma-separated emails allowed to spend the LLM keys (run AI generation).
+      - key: OWNER_EMAILS
         sync: false
       # Signs the session cookie; Render generates + persists a strong value.
       - key: SESSION_SECRET
         generateValue: true
+      - key: SESSION_HTTPS_ONLY
+        value: "true"
       # Set these in the Render dashboard (sync: false = not stored in the blueprint):
       - key: LLM_MODEL
         sync: false

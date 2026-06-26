@@ -6,9 +6,11 @@ venv/
 *.egg-info/
 build/
 
-# Claude Code local config
+# Claude Code local config + specs (kept locally, not committed)
 .claude/
 settings.local.json
+CLAUDE.md
+CLAUDE_CODE_SPEC.md
 
 # Env / secrets
 .env

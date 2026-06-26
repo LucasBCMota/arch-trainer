@@ -19,7 +19,7 @@ function ModelPicker({ models, value, onChange }) {
   );
 }
 
-export default function Study() {
+export default function Study({ isOwner = true }) {
   const [gaps, setGaps] = useState([]);
   const [notes, setNotes] = useState([]);
   const [models, setModels] = useState(null);
@@ -65,6 +65,12 @@ export default function Study() {
     setNotes((n) => n.map((x) => (x.id === note.id ? updated : x)));
     if (open?.id === note.id) setOpen(updated);
   }
+  async function toggleVisibility(note) {
+    const next = note.visibility === "public" ? "private" : "public";
+    const updated = await api.setNoteVisibility(note.id, next);
+    setNotes((n) => n.map((x) => (x.id === note.id ? updated : x)));
+    if (open?.id === note.id) setOpen(updated);
+  }
 
   if (open) {
     return (
@@ -73,6 +79,7 @@ export default function Study() {
         onBack={() => setOpen(null)}
         onDelete={() => remove(open.id)}
         onPin={() => togglePin(open)}
+        onVisibility={() => toggleVisibility(open)}
         onSaved={(u) => {
           setNotes((n) => n.map((x) => (x.id === u.id ? u : x)));
           setOpen(u);
@@ -89,19 +96,27 @@ export default function Study() {
           Generate a deep-dive on any pattern, or one you keep missing. Pages are stored — generate
           once with a strong model, read forever.
         </p>
-        <label className="field">Model</label>
-        <ModelPicker models={models} value={model} onChange={setModel} />
+        {isOwner && (
+          <>
+            <label className="field">Model</label>
+            <ModelPicker models={models} value={model} onChange={setModel} />
+          </>
+        )}
         <div className="row" style={{ marginTop: 14 }}>
-          <input
-            className="text-input"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g. compare-and-delete / optimistic locking"
-            onKeyDown={(e) => e.key === "Enter" && generate(topic)}
-          />
-          <button className="primary" disabled={busy || !topic.trim()} onClick={() => generate(topic)}>
-            {busy ? "Generating…" : "Generate"}
-          </button>
+          {isOwner && (
+            <>
+              <input
+                className="text-input"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g. compare-and-delete / optimistic locking"
+                onKeyDown={(e) => e.key === "Enter" && generate(topic)}
+              />
+              <button className="primary" disabled={busy || !topic.trim()} onClick={() => generate(topic)}>
+                {busy ? "Generating…" : "Generate"}
+              </button>
+            </>
+          )}
           <button className="ghost" onClick={() => setShowImport((s) => !s)}>
             {showImport ? "Close import" : "Paste / import"}
           </button>
@@ -120,7 +135,7 @@ export default function Study() {
         )}
       </div>
 
-      {gaps.length > 0 && (
+      {isOwner && gaps.length > 0 && (
         <div className="panel">
           <h2>Study your gaps</h2>
           <div className="chips">
@@ -161,7 +176,7 @@ export default function Study() {
   );
 }
 
-function NoteReader({ note, onBack, onDelete, onPin, onSaved }) {
+function NoteReader({ note, onBack, onDelete, onPin, onVisibility, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.content_md);
   const [topic, setTopic] = useState(note.topic);
@@ -181,6 +196,9 @@ function NoteReader({ note, onBack, onDelete, onPin, onSaved }) {
         <div className="row">
           <button className="ghost" onClick={onPin}>
             {note.pinned ? "★ pinned" : "☆ pin"}
+          </button>
+          <button className="ghost" onClick={onVisibility}>
+            {note.visibility === "public" ? "🌐 public" : "🔒 private"}
           </button>
           <button className="ghost" onClick={() => setEditing((e) => !e)}>
             {editing ? "cancel" : "edit"}

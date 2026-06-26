@@ -6,10 +6,11 @@ import Result from "./views/Result.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import Study from "./views/Study.jsx";
 import Artifacts from "./views/Artifacts.jsx";
+import Public from "./views/Public.jsx";
 import Login from "./views/Login.jsx";
 
 export default function App() {
-  const [auth, setAuth] = useState(null); // null = unknown, false = needs login, true = ok
+  const [user, setUser] = useState(undefined); // undefined = loading, null = logged out
   const [view, setView] = useState("setup");
   const [scenario, setScenario] = useState(null);
   const [result, setResult] = useState(null);
@@ -17,9 +18,11 @@ export default function App() {
   useEffect(() => {
     api
       .me()
-      .then((m) => setAuth(m.authenticated))
-      .catch(() => setAuth(false));
+      .then((m) => setUser(m.authenticated ? m.user : null))
+      .catch(() => setUser(null));
   }, []);
+
+  const isOwner = !!user?.is_owner;
 
   function startAnswering(sc) {
     setScenario(sc);
@@ -34,11 +37,6 @@ export default function App() {
     setResult(null);
     setView("setup");
   }
-  async function logout() {
-    await api.logout().catch(() => {});
-    setAuth(false);
-    reset();
-  }
 
   return (
     <div className="app">
@@ -46,12 +44,9 @@ export default function App() {
         <h1>
           architecture<span className="dot">.</span>trainer
         </h1>
-        {auth && (
+        {user && (
           <nav>
-            <button
-              className={["setup", "answering", "result"].includes(view) ? "active" : ""}
-              onClick={reset}
-            >
+            <button className={["setup", "answering", "result"].includes(view) ? "active" : ""} onClick={reset}>
               train
             </button>
             <button className={view === "study" ? "active" : ""} onClick={() => setView("study")}>
@@ -60,26 +55,38 @@ export default function App() {
             <button className={view === "artifacts" ? "active" : ""} onClick={() => setView("artifacts")}>
               artifacts
             </button>
+            <button className={view === "public" ? "active" : ""} onClick={() => setView("public")}>
+              public
+            </button>
             <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>
               dashboard
             </button>
-            <button onClick={logout}>logout</button>
+            <button onClick={() => (window.location.href = api.logoutUrl)} title={user.email}>
+              logout
+            </button>
           </nav>
         )}
       </header>
 
-      {auth === null && <p className="muted">Loading…</p>}
-      {auth === false && <Login onAuthed={() => setAuth(true)} />}
+      {user === undefined && <p className="muted">Loading…</p>}
+      {user === null && <Login />}
 
-      {auth && (
+      {user && (
         <>
-          {view === "setup" && <Setup onScenario={startAnswering} />}
+          {!isOwner && (view === "setup" || view === "study" || view === "artifacts") && (
+            <p className="muted" style={{ fontSize: 13 }}>
+              You're signed in as a viewer — AI generation is owner-only (it spends the host's LLM
+              keys). You can browse <b>public</b> artifacts and import your own pasted notes.
+            </p>
+          )}
+          {view === "setup" && <Setup onScenario={startAnswering} isOwner={isOwner} />}
           {view === "answering" && (
             <Answering scenario={scenario} onResult={showResult} onCancel={reset} />
           )}
           {view === "result" && <Result scenario={scenario} result={result} onNext={reset} />}
-          {view === "study" && <Study />}
-          {view === "artifacts" && <Artifacts />}
+          {view === "study" && <Study isOwner={isOwner} />}
+          {view === "artifacts" && <Artifacts isOwner={isOwner} />}
+          {view === "public" && <Public />}
           {view === "dashboard" && <Dashboard />}
         </>
       )}

@@ -29,6 +29,39 @@ class StudyNoteKind(str, enum.Enum):
     cheat_sheet = "cheat_sheet"
 
 
+class Visibility(str, enum.Enum):
+    private = "private"
+    public = "public"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sub: Mapped[str] = mapped_column(String(255), unique=True, index=True)  # Auth0 subject
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    picture: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    @property
+    def display_name(self) -> str:
+        return self.name or (self.email.split("@")[0] if self.email else "user")
+
+
+# Reusable column factories for the owner_id / visibility pair added to ownable rows.
+def _owner_id_col() -> Mapped[uuid.UUID | None]:
+    return mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+
+
+def _visibility_col() -> Mapped[Visibility]:
+    return mapped_column(
+        Enum(Visibility, name="visibility"),
+        default=Visibility.private,
+        server_default="private",
+    )
+
+
 class Scenario(Base):
     __tablename__ = "scenarios"
 
@@ -43,7 +76,10 @@ class Scenario(Base):
     reference_solution: Mapped[dict] = mapped_column(JSONB, default=dict)
     model: Mapped[str] = mapped_column(String(128))
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    user_id: Mapped[uuid.UUID | None] = _owner_id_col()
+    visibility: Mapped[Visibility] = _visibility_col()
 
+    user: Mapped["User | None"] = relationship()
     sessions: Mapped[list["Session"]] = relationship(back_populates="scenario")
 
 
@@ -57,7 +93,10 @@ class Session(Base):
     judgment: Mapped[dict] = mapped_column(JSONB, default=dict)
     score: Mapped[int] = mapped_column(Integer)
     model: Mapped[str] = mapped_column(String(128))
+    user_id: Mapped[uuid.UUID | None] = _owner_id_col()
+    visibility: Mapped[Visibility] = _visibility_col()
 
+    user: Mapped["User | None"] = relationship()
     scenario: Mapped["Scenario"] = relationship(back_populates="sessions")
     pattern_gaps: Mapped[list["PatternGap"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
@@ -86,3 +125,7 @@ class StudyNote(Base):
     # Origin: an LLM model id (e.g. "openrouter:...") or a manual source label.
     model: Mapped[str] = mapped_column(String(128))
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    user_id: Mapped[uuid.UUID | None] = _owner_id_col()
+    visibility: Mapped[Visibility] = _visibility_col()
+
+    user: Mapped["User | None"] = relationship()

@@ -9,7 +9,7 @@ const TABS = [
   ["pinned", "Pinned"],
 ];
 
-export default function Artifacts() {
+export default function Artifacts({ isOwner = true }) {
   const [tab, setTab] = useState("references");
   return (
     <>
@@ -25,21 +25,26 @@ export default function Artifacts() {
         ))}
       </div>
       {tab === "references" && <References />}
-      {tab === "cheatsheets" && <CheatSheets />}
+      {tab === "cheatsheets" && <CheatSheets isOwner={isOwner} />}
       {tab === "pinned" && <Pinned />}
     </>
   );
 }
 
-function ReferenceCard({ r, onPin }) {
+function ReferenceCard({ r, onPin, onVis }) {
   const ref = r.reference_solution;
   return (
     <div className="panel">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h3 style={{ margin: 0 }}>{r.title}</h3>
-        <button className="ghost" onClick={() => onPin(r)}>
-          {r.pinned ? "★ pinned" : "☆ pin"}
-        </button>
+        <div className="row">
+          <button className="ghost" onClick={() => onVis(r)}>
+            {r.visibility === "public" ? "🌐 public" : "🔒 private"}
+          </button>
+          <button className="ghost" onClick={() => onPin(r)}>
+            {r.pinned ? "★ pinned" : "☆ pin"}
+          </button>
+        </div>
       </div>
       <p className="muted mono" style={{ marginTop: 2 }}>
         {r.difficulty} · {r.focus_area} · {r.model}
@@ -64,6 +69,11 @@ function References() {
     const u = await api.pinScenario(r.id, !r.pinned);
     setRefs((xs) => xs.map((x) => (x.id === r.id ? { ...x, pinned: u.pinned } : x)));
   }
+  async function vis(r) {
+    const next = r.visibility === "public" ? "private" : "public";
+    const u = await api.setScenarioVisibility(r.id, next);
+    setRefs((xs) => xs.map((x) => (x.id === r.id ? { ...x, visibility: u.visibility } : x)));
+  }
 
   if (error) return <p className="error">{error}</p>;
   if (refs.length === 0)
@@ -74,10 +84,10 @@ function References() {
         </p>
       </div>
     );
-  return refs.map((r) => <ReferenceCard key={r.id} r={r} onPin={pin} />);
+  return refs.map((r) => <ReferenceCard key={r.id} r={r} onPin={pin} onVis={vis} />);
 }
 
-function CheatSheets() {
+function CheatSheets({ isOwner = true }) {
   const [notes, setNotes] = useState([]);
   const [models, setModels] = useState(null);
   const [model, setModel] = useState("");
@@ -117,12 +127,17 @@ function CheatSheets() {
     await api.deleteNote(id).catch(() => {});
     setNotes((xs) => xs.filter((x) => x.id !== id));
   }
+  async function vis(n) {
+    const next = n.visibility === "public" ? "private" : "public";
+    const u = await api.setNoteVisibility(n.id, next);
+    setNotes((xs) => xs.map((x) => (x.id === n.id ? u : x)));
+  }
 
   return (
     <>
       <div className="panel">
         <h2>Make a cheat-sheet</h2>
-        {models && (
+        {isOwner && models && (
           <select value={model} onChange={(e) => setModel(e.target.value)} style={{ maxWidth: 320 }}>
             <option value="">default ({models.current})</option>
             {opts.map((m) => (
@@ -133,16 +148,20 @@ function CheatSheets() {
           </select>
         )}
         <div className="row" style={{ marginTop: 12 }}>
-          <input
-            className="text-input"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="Pattern name"
-            onKeyDown={(e) => e.key === "Enter" && generate()}
-          />
-          <button className="primary" disabled={busy || !topic.trim()} onClick={generate}>
-            {busy ? "Generating…" : "Generate"}
-          </button>
+          {isOwner && (
+            <>
+              <input
+                className="text-input"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Pattern name"
+                onKeyDown={(e) => e.key === "Enter" && generate()}
+              />
+              <button className="primary" disabled={busy || !topic.trim()} onClick={generate}>
+                {busy ? "Generating…" : "Generate"}
+              </button>
+            </>
+          )}
           <button className="ghost" onClick={() => setShowImport((s) => !s)}>
             {showImport ? "Close import" : "Paste / import"}
           </button>
@@ -164,6 +183,9 @@ function CheatSheets() {
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{n.topic}</h3>
             <div className="row">
+              <button className="ghost" onClick={() => vis(n)}>
+                {n.visibility === "public" ? "🌐" : "🔒"}
+              </button>
               <button className="ghost" onClick={() => pin(n)}>
                 {n.pinned ? "★" : "☆"}
               </button>

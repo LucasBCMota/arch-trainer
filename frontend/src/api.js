@@ -41,9 +41,10 @@ async function req(path, options = {}) {
 
 export const api = {
   me: () => req("/me"),
-  login: (password) =>
-    req("/login", { method: "POST", body: JSON.stringify({ password }) }),
-  logout: () => req("/logout", { method: "POST" }),
+  // Auth0 BFF: these are full-page redirects, not fetches.
+  loginUrl: "/api/auth/login",
+  googleLoginUrl: "/api/auth/login?connection=google-oauth2",
+  logoutUrl: "/api/auth/logout",
   models: () => req("/models"),
   createScenario: (body) =>
     req("/scenarios", { method: "POST", body: JSON.stringify(body) }),
@@ -70,4 +71,19 @@ export const api = {
   references: () => req("/artifacts/references"),
   pinScenario: (id, pinned) =>
     req(`/scenarios/${id}/pin`, { method: "POST", body: JSON.stringify({ pinned }) }),
+
+  // visibility toggles (private⇄public)
+  setNoteVisibility: (id, visibility) =>
+    req(`/study-notes/${id}/visibility`, { method: "POST", body: JSON.stringify({ visibility }) }),
+  setScenarioVisibility: (id, visibility) =>
+    req(`/scenarios/${id}/visibility`, { method: "POST", body: JSON.stringify({ visibility }) }),
+  setSessionVisibility: (id, visibility) =>
+    req(`/sessions/${id}/visibility`, { method: "POST", body: JSON.stringify({ visibility }) }),
+
+  // public browse
+  publicNotes: () => req("/public/study-notes"),
+  publicReferences: () => req("/public/references"),
+
+  // owner-only: claim pre-auth rows
+  claimLegacy: () => req("/admin/claim-legacy", { method: "POST" }),
 };

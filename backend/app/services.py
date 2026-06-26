@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session as DbSession
 
 from . import llm, prompts
 from .config import settings
-from .models import PatternGap, Scenario, Session, StudyNote, StudyNoteKind
+from .models import PatternGap, Scenario, Session, StudyNote, StudyNoteKind, User
 from .schemas import ScenarioCreate, SessionCreate
 
 
-def generate_scenario(db: DbSession, payload: ScenarioCreate) -> Scenario:
+def generate_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scenario:
     model = payload.model or settings.llm_model
     raw = llm.complete(
         prompts.SCENARIO_SYSTEM,
@@ -28,6 +28,7 @@ def generate_scenario(db: DbSession, payload: ScenarioCreate) -> Scenario:
         constraints=data.get("constraints", []),
         reference_solution=data["reference_solution"],
         model=model,
+        user_id=user.id,
     )
     db.add(scenario)
     db.commit()
@@ -44,7 +45,7 @@ def _scenario_block(scenario: Scenario) -> str:
     )
 
 
-def judge_answer(db: DbSession, payload: SessionCreate, scenario: Scenario) -> Session:
+def judge_answer(db: DbSession, payload: SessionCreate, scenario: Scenario, user: User) -> Session:
     """Load the stored reference server-side, judge, persist, explode pattern gaps."""
     model = scenario.model  # judge with the model that generated the scenario
     raw = llm.complete(
@@ -65,6 +66,7 @@ def judge_answer(db: DbSession, payload: SessionCreate, scenario: Scenario) -> S
         judgment=judgment,
         score=score,
         model=model,
+        user_id=user.id,
     )
     db.add(session)
     db.flush()  # assign session.id before creating child rows
@@ -84,7 +86,7 @@ def judge_answer(db: DbSession, payload: SessionCreate, scenario: Scenario) -> S
 
 
 def generate_study_note(
-    db: DbSession, topic: str, kind: StudyNoteKind, model: str | None
+    db: DbSession, topic: str, kind: StudyNoteKind, model: str | None, user: User
 ) -> StudyNote:
     """AI-generate a Markdown study note or cheat-sheet and store it.
 
@@ -93,12 +95,12 @@ def generate_study_note(
     """
     model = model or settings.llm_model
     if kind == StudyNoteKind.cheat_sheet:
-        system, user = prompts.CHEATSHEET_SYSTEM, prompts.cheatsheet_user_prompt(topic)
+        system, user_prompt = prompts.CHEATSHEET_SYSTEM, prompts.cheatsheet_user_prompt(topic)
     else:
-        system, user = prompts.STUDY_SYSTEM, prompts.study_user_prompt(topic)
+        system, user_prompt = prompts.STUDY_SYSTEM, prompts.study_user_prompt(topic)
 
-    content = llm.complete(system, user, model=model).strip()
-    note = StudyNote(kind=kind, topic=topic, content_md=content, model=model)
+    content = llm.complete(system, user_prompt, model=model).strip()
+    note = StudyNote(kind=kind, topic=topic, content_md=content, model=model, user_id=user.id)
     db.add(note)
     db.commit()
     db.refresh(note)

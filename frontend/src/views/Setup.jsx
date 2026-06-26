@@ -12,7 +12,7 @@ const FOCUS_AREAS = [
   "consistency",
 ];
 
-export default function Setup({ onScenario }) {
+export default function Setup({ onScenario, isOwner = true }) {
   const [difficulty, setDifficulty] = useState("feature");
   const [focus, setFocus] = useState("any");
   const [models, setModels] = useState(null);
@@ -99,10 +99,16 @@ export default function Setup({ onScenario }) {
           <button
             className="primary"
             onClick={generate}
-            disabled={loading || (models && models.available.length === 0)}
+            disabled={!isOwner || loading || (models && models.available.length === 0)}
+            title={isOwner ? "" : "Owner only — generation spends the host's LLM keys"}
           >
             {loading ? "Generating…" : "Generate scenario"}
           </button>
+          {!isOwner && (
+            <span className="muted" style={{ marginLeft: 10, fontSize: 13 }}>
+              owner only
+            </span>
+          )}
         </div>
         {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
       </div>

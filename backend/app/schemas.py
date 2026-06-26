@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from .models import Difficulty
+from .models import Difficulty, Visibility
 
 
 # ---- Reference solution shape (generated, ground truth) ----
@@ -60,6 +60,7 @@ class ScenarioOut(BaseModel):
     problem: str
     constraints: list
     model: str
+    visibility: Visibility = Visibility.private
 
 
 class ScenarioRevealOut(ScenarioOut):
@@ -84,6 +85,8 @@ class SessionOut(BaseModel):
     judgment: Judgment
     score: int
     model: str
+    visibility: Visibility = Visibility.private
+    author: str | None = None
 
 
 class SessionResult(SessionOut):
@@ -118,6 +121,8 @@ class StudyNoteOut(BaseModel):
     content_md: str
     model: str
     pinned: bool
+    visibility: Visibility = Visibility.private
+    author: str | None = None
 
 
 class StudyCreate(BaseModel):
@@ -141,6 +146,10 @@ class PinBody(BaseModel):
     pinned: bool
 
 
+class VisibilityBody(BaseModel):
+    visibility: Visibility
+
+
 class ReferenceArtifactOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -152,4 +161,6 @@ class ReferenceArtifactOut(BaseModel):
     problem: str
     model: str
     pinned: bool
+    visibility: Visibility = Visibility.private
+    author: str | None = None
     reference_solution: ReferenceSolution

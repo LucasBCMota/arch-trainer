@@ -1,55 +1,101 @@
-"""Single shared-password gate for the token-spending API.
+"""Authentication & authorization.
 
-If APP_PASSWORD is unset, auth is disabled (local dev). When set, clients must
-POST /api/login with it; that stamps a signed session cookie, and protected
-routes check it via the require_auth dependency.
+Auth0 server-side BFF: the backend runs the OIDC code flow (Authlib), reads
+userinfo once, and stores only the local `user_id` in the signed httponly session
+cookie. OAuth tokens are never persisted or exposed to the browser.
+
+Two authZ tiers:
+  - current_user : any logged-in user (AuthN).
+  - require_owner: user whose email is in OWNER_EMAILS — the only ones allowed to
+    spend the server's LLM keys. `can_spend()` is the seam for future BYO-key.
+
+If Auth0 is not configured, a local dev-owner is auto-logged-in so the app is
+usable without a tenant.
 """
 
-import secrets
+import uuid
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from authlib.integrations.starlette_client import OAuth
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy import select
+from sqlalchemy.orm import Session as DbSession
 
 from .config import settings
+from .db import get_db
+from .models import User
 
-router = APIRouter(prefix="/api", tags=["auth"])
+DEV_SUB = "dev|local"
+DEV_EMAIL = "dev@local"
 
-
-def auth_enabled() -> bool:
-    return bool(settings.app_password)
-
-
-def require_auth(request: Request) -> None:
-    """Dependency: 401 unless authenticated (or auth is disabled)."""
-    if not auth_enabled():
-        return
-    if not request.session.get("auth"):
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-
-class LoginBody(BaseModel):
-    password: str
+oauth = OAuth()
+if settings.auth0_configured:
+    oauth.register(
+        name="auth0",
+        client_id=settings.auth0_client_id,
+        client_secret=settings.auth0_client_secret,
+        server_metadata_url=f"https://{settings.auth0_domain}/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid profile email"},
+    )
 
 
-@router.get("/me")
-def me(request: Request) -> dict:
-    return {
-        "auth_required": auth_enabled(),
-        "authenticated": (not auth_enabled()) or bool(request.session.get("auth")),
-    }
+def is_owner(user: User) -> bool:
+    # If no allowlist is configured, treat every user as an owner (single-user /
+    # dev convenience). Set OWNER_EMAILS in production to lock spending down.
+    owners = settings.owner_email_set
+    if not owners:
+        return True
+    return (user.email or "").lower() in owners
 
 
-@router.post("/login")
-def login(body: LoginBody, request: Request) -> dict:
-    if not auth_enabled():
-        return {"ok": True}  # nothing to check
-    if not secrets.compare_digest(body.password, settings.app_password or ""):
-        raise HTTPException(status_code=401, detail="Wrong password")
-    request.session["auth"] = True
-    return {"ok": True}
+def can_spend(user: User) -> bool:
+    """Whether this user may spend the server's LLM keys. Today == owner.
+    Future bring-your-own-key check slots in here."""
+    return is_owner(user)
 
 
-@router.post("/logout")
-def logout(request: Request) -> dict:
-    request.session.clear()
-    return {"ok": True}
+def upsert_user(db: DbSession, sub: str, email: str, name: str | None, picture: str | None) -> User:
+    user = db.scalar(select(User).where(User.sub == sub))
+    if user is None:
+        user = User(sub=sub, email=email, name=name, picture=picture)
+        db.add(user)
+    else:
+        user.email, user.name, user.picture = email, name, picture
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _dev_user(db: DbSession) -> User:
+    user = db.scalar(select(User).where(User.sub == DEV_SUB))
+    if user is None:
+        user = User(sub=DEV_SUB, email=DEV_EMAIL, name="Dev Owner")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+
+def current_user(request: Request, db: DbSession = Depends(get_db)) -> User:
+    # Local fallback: no Auth0 -> always act as the dev owner.
+    if not settings.auth0_configured:
+        return _dev_user(db)
+
+    uid = request.session.get("user_id")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        user = db.get(User, uuid.UUID(uid))
+    except ValueError:
+        user = None
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+def require_owner(user: User = Depends(current_user)) -> User:
+    if not can_spend(user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only an owner can run AI generation (it spends the server's LLM keys).",
+        )
+    return user
