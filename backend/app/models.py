@@ -34,6 +34,22 @@ class Visibility(str, enum.Enum):
     public = "public"
 
 
+class JobStatus(str, enum.Enum):
+    pending = "pending"   # queued, not yet picked up
+    running = "running"   # a worker is processing it
+    ready = "ready"       # finished successfully
+    error = "error"       # failed (see .error)
+
+
+def _status_col() -> Mapped["JobStatus"]:
+    return mapped_column(
+        Enum(JobStatus, name="jobstatus"),
+        default=JobStatus.ready,
+        server_default="ready",  # existing rows are already complete
+        index=True,
+    )
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -80,6 +96,8 @@ class Scenario(Base):
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
+    status: Mapped[JobStatus] = _status_col()
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped["User | None"] = relationship()
     sessions: Mapped[list["Session"]] = relationship(back_populates="scenario")
@@ -97,6 +115,8 @@ class Session(Base):
     model: Mapped[str] = mapped_column(String(128))
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
+    status: Mapped[JobStatus] = _status_col()
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped["User | None"] = relationship()
     scenario: Mapped["Scenario"] = relationship(back_populates="sessions")

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from .models import Difficulty, Visibility
+from .models import Difficulty, JobStatus, Visibility
 
 
 # ---- Reference solution shape (generated, ground truth) ----
@@ -61,6 +61,8 @@ class ScenarioOut(BaseModel):
     constraints: list
     model: str
     visibility: Visibility = Visibility.private
+    status: JobStatus = JobStatus.ready
+    error: str | None = None
 
 
 class ScenarioRevealOut(ScenarioOut):
@@ -82,17 +84,19 @@ class SessionOut(BaseModel):
     scenario_id: uuid.UUID
     created_at: datetime
     user_answer: str
-    judgment: Judgment
+    judgment: dict = {}  # empty until judged; full judgment shape once ready
     score: int
     model: str
     visibility: Visibility = Visibility.private
     author: str | None = None
+    status: JobStatus = JobStatus.ready
+    error: str | None = None
 
 
-class SessionResult(SessionOut):
-    """Returned right after judging — includes the full reference for the result screen."""
+class SessionDetail(SessionOut):
+    """GET /api/sessions/{id} — includes the reference once judging is ready."""
 
-    reference_solution: ReferenceSolution
+    reference_solution: ReferenceSolution | None = None
 
 
 # ---- Stats / models ----

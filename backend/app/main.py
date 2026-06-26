@@ -1,14 +1,23 @@
+import threading
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from . import worker
 from .auth import current_user
 from .config import settings
 from .routers import auth, library, models, scenarios, sessions, stats
 
 app = FastAPI(title="Architecture Reasoning Trainer")
+
+
+@app.on_event("startup")
+def _start_worker() -> None:
+    # In-process background worker drains the LLM job queue (see worker.py).
+    if settings.run_worker:
+        threading.Thread(target=worker.worker_loop, daemon=True, name="job-worker").start()
 
 # Signs the httponly session cookie that holds the logged-in user id.
 app.add_middleware(

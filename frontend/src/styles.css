@@ -421,6 +421,22 @@ button.link {
   border-color: var(--accent);
 }
 
+/* waiting spinner (async jobs) */
+.spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* rendered markdown */
 .markdown {
   font-size: 15px;

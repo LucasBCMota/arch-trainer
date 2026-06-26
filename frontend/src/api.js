@@ -48,9 +48,23 @@ export const api = {
   models: () => req("/models"),
   createScenario: (body) =>
     req("/scenarios", { method: "POST", body: JSON.stringify(body) }),
+  getScenario: (id) => req(`/scenarios/${id}`),
   createSession: (body) =>
     req("/sessions", { method: "POST", body: JSON.stringify(body) }),
+  getSession: (id) => req(`/sessions/${id}`),
   listSessions: () => req("/sessions"),
+
+  // Poll a pending job (scenario/session) until it's ready or errors.
+  poll: async (fetchFn, { interval = 2500, maxMs = 600000 } = {}) => {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const item = await fetchFn();
+      if (item.status === "ready") return item;
+      if (item.status === "error") throw new Error(item.error || "The job failed.");
+      await new Promise((r) => setTimeout(r, interval));
+    }
+    throw new Error("Still working after several minutes — check back from the dashboard shortly.");
+  },
   patternGaps: () => req("/stats/pattern-gaps"),
   summary: () => req("/stats/summary"),
   exportUrl: "/api/sessions/export",

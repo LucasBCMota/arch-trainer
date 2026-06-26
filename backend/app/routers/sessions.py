@@ -1,31 +1,45 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from .. import services
-from ..access import assert_owner
+from ..access import assert_owner, assert_visible
 from ..auth import current_user, require_owner
 from ..db import get_db
-from ..models import Scenario, Session, User
-from ..schemas import SessionCreate, SessionOut, SessionResult, VisibilityBody
+from ..models import JobStatus, Scenario, Session, User
+from ..schemas import SessionCreate, SessionDetail, SessionOut, VisibilityBody
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
-@router.post("", response_model=SessionResult)
+@router.post("", response_model=SessionOut)
 def create_session(
     payload: SessionCreate,
     db: DbSession = Depends(get_db),
     owner: User = Depends(require_owner),  # judging spends the server's keys
-) -> SessionResult:
+) -> Session:
     # You may only answer your own scenario (assert_owner → 404 otherwise).
     scenario = assert_owner(db.get(Scenario, payload.scenario_id), owner)
-    session = services.judge_answer(db, payload, scenario, owner)
-    base = SessionOut.model_validate(session)
-    return SessionResult(**base.model_dump(), reference_solution=scenario.reference_solution)
+    if scenario.status != JobStatus.ready:
+        raise HTTPException(status_code=409, detail="Scenario is not ready yet")
+    # Enqueue a pending judging job; the worker does the LLM call. Poll GET /{id}.
+    return services.enqueue_session(db, payload, scenario, owner)
+
+
+@router.get("/{session_id}", response_model=SessionDetail)
+def get_session(
+    session_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    user: User = Depends(current_user),
+) -> SessionDetail:
+    session = assert_visible(db.get(Session, session_id), user)
+    out = SessionDetail.model_validate(session)
+    if session.status == JobStatus.ready:
+        out.reference_solution = session.scenario.reference_solution
+    return out
 
 
 @router.get("", response_model=list[SessionOut])

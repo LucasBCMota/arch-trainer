@@ -30,6 +30,13 @@ Set `LLM_MODEL` as `provider:model_id`, and set that provider's key:
 Keys are read from **env only**, never stored in the database. `GET /api/models` reports which
 providers are configured; the Setup screen's model dropdown lets you switch at runtime.
 
+## Slow models / async generation
+Generate and judge run through a **DB-backed job queue** drained by a background worker thread inside
+the API (no Redis, no separate worker — works locally and on Render free). The `POST` returns a
+`pending` row instantly and the UI polls until it's `ready`, so even slow/queued free models never
+time out the request. `LLM_TIMEOUT` (default 300s) bounds the worker's call. Set `RUN_WORKER=false`
+to disable the worker (e.g. in tests).
+
 ## Auth & multi-user
 Login is **Auth0 (server-side BFF)** with "Continue with Google". The backend runs the OIDC code
 flow (Authlib); only the local `user_id` is stored in an httponly session cookie — **no tokens ever

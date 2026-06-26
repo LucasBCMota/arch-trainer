@@ -62,12 +62,14 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    # Per-call LLM timeout (seconds) and retry cap. Keep the *effective* wait
-    # (timeout × (retries+1)) below the frontend's 180s abort so a slow/queued
-    # model returns a clean 504 ("model too slow") instead of the client aborting.
-    # Retries are 0 because retrying a *timed-out* model just doubles the wait.
-    llm_timeout: float = 90.0
-    llm_max_retries: int = 0
+    # Per-call LLM timeout (seconds) and retry cap. Generate/judge run in the
+    # background worker now (not the request), so we can be patient with slow
+    # free models — no HTTP client is waiting on the socket.
+    llm_timeout: float = 300.0
+    llm_max_retries: int = 1
+
+    # Run the in-process job worker thread. Disable in tests if needed.
+    run_worker: bool = True
 
 
 settings = Settings()

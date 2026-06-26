@@ -33,12 +33,27 @@ export default function Setup({ onScenario, isOwner = true }) {
     try {
       const body = { difficulty, focus_area: focus };
       if (model) body.model = model;
-      const sc = await api.createScenario(body);
-      onScenario(sc);
+      const pending = await api.createScenario(body); // returns immediately
+      const ready = await api.poll(() => api.getScenario(pending.id));
+      onScenario(ready);
     } catch (e) {
       setError(e.message);
       setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="panel" style={{ textAlign: "center", padding: "48px 22px" }}>
+        <div className="spinner" />
+        <h2 style={{ marginTop: 16 }}>Generating scenario…</h2>
+        <p className="muted">
+          Queued to the model. Free/slow models can take a few minutes — keep this tab open; it'll
+          appear automatically when ready.
+        </p>
+        {error && <p className="error">{error}</p>}
+      </div>
+    );
   }
 
   return (

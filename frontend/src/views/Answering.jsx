@@ -10,15 +10,29 @@ export default function Answering({ scenario, onResult, onCancel }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.createSession({
+      const pending = await api.createSession({
         scenario_id: scenario.id,
         user_answer: answer,
       });
-      onResult(res);
+      const ready = await api.poll(() => api.getSession(pending.id));
+      onResult(ready);
     } catch (e) {
       setError(e.message);
       setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="panel" style={{ textAlign: "center", padding: "48px 22px" }}>
+        <div className="spinner" />
+        <h2 style={{ marginTop: 16 }}>Judging your answer…</h2>
+        <p className="muted">
+          Queued to the model. This can take a few minutes on slow/free models — keep this tab open;
+          your result will appear automatically.
+        </p>
+      </div>
+    );
   }
 
   return (

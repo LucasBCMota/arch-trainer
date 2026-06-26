@@ -25,9 +25,9 @@ def create_scenario(
     db: DbSession = Depends(get_db),
     owner: User = Depends(require_owner),  # generation spends the server's keys
 ) -> Scenario:
-    # response_model=ScenarioOut has no reference_solution field, so the
-    # reference can never reach the frontend before judging.
-    return services.generate_scenario(db, payload, owner)
+    # Enqueue a pending scenario and return immediately; the worker generates it.
+    # ScenarioOut has no reference_solution field, so the reference never leaks.
+    return services.enqueue_scenario(db, payload, owner)
 
 
 @router.get("/{scenario_id}")
