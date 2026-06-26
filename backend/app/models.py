@@ -43,6 +43,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), index=True)
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
     picture: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # User's saved "provider:model" strings for quick switching.
+    favorite_models: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
 
     @property
     def display_name(self) -> str:

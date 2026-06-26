@@ -150,6 +150,10 @@ class VisibilityBody(BaseModel):
     visibility: Visibility
 
 
+class FavoriteModelsBody(BaseModel):
+    models: list[str]
+
+
 class ReferenceArtifactOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

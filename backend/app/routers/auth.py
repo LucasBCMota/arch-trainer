@@ -3,10 +3,13 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from .. import auth
 from ..config import settings
 from ..db import get_db
+from ..models import User
+from ..schemas import FavoriteModelsBody
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
@@ -51,15 +54,37 @@ async def logout(request: Request):
     return RedirectResponse(url=f"https://{settings.auth0_domain}/v2/logout?{params}")
 
 
-@router.get("/me")
-def me(user=Depends(auth.current_user)) -> dict:
+def _user_dict(user: User) -> dict:
     return {
-        "authenticated": True,
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "name": user.display_name,
-            "picture": user.picture,
-            "is_owner": auth.is_owner(user),
-        },
+        "id": str(user.id),
+        "email": user.email,
+        "name": user.display_name,
+        "picture": user.picture,
+        "is_owner": auth.is_owner(user),
+        "favorite_models": user.favorite_models or [],
     }
+
+
+@router.get("/me")
+def me(user: User = Depends(auth.current_user)) -> dict:
+    return {"authenticated": True, "user": _user_dict(user)}
+
+
+@router.put("/me/favorite-models")
+def set_favorite_models(
+    body: FavoriteModelsBody,
+    db: DbSession = Depends(get_db),
+    user: User = Depends(auth.current_user),
+) -> dict:
+    # de-dupe, drop blanks, preserve order; cap to keep it tidy.
+    seen, cleaned = set(), []
+    for m in body.models:
+        m = (m or "").strip()
+        if m and m not in seen:
+            seen.add(m)
+            cleaned.append(m)
+    user.favorite_models = cleaned[:20]
+    flag_modified(user, "favorite_models")  # JSONB in-place reassignment
+    db.commit()
+    db.refresh(user)
+    return {"favorite_models": user.favorite_models}

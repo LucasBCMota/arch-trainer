@@ -86,4 +86,8 @@ export const api = {
 
   // owner-only: claim pre-auth rows
   claimLegacy: () => req("/admin/claim-legacy", { method: "POST" }),
+
+  // per-user favorite models
+  setFavoriteModels: (models) =>
+    req("/me/favorite-models", { method: "PUT", body: JSON.stringify({ models }) }),
 };
