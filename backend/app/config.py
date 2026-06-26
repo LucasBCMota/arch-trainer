@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     # free models — no HTTP client is waiting on the socket.
     llm_timeout: float = 300.0
     llm_max_retries: int = 1
+    # Outer retries for transient provider hiccups (e.g. an overloaded free model
+    # returning a malformed/non-JSON body). Total tries = this value.
+    llm_retry_attempts: int = 3
 
     # Run the in-process job worker thread. Disable in tests if needed.
     run_worker: bool = True

@@ -9,6 +9,7 @@ overridden per request). API keys are read from env only — never the database.
 """
 
 import json
+import time
 
 from fastapi import HTTPException
 
@@ -91,8 +92,19 @@ def _complete_openai_compatible(
     return resp.choices[0].message.content or ""
 
 
+def _is_transient(exc: Exception) -> bool:
+    """Flaky/overloaded free endpoints often return a malformed or non-JSON body
+    (json decode error) or drop the connection — these usually succeed on retry."""
+    if isinstance(exc, json.JSONDecodeError):
+        return True
+    name = exc.__class__.__name__
+    if name in ("APIConnectionError", "InternalServerError", "APIError"):
+        return True
+    return "Expecting value" in str(exc)  # bare json decode bubbling up from the SDK
+
+
 def complete(system: str, user: str, *, model: str | None = None) -> str:
-    """Run one completion and return raw text."""
+    """Run one completion and return raw text, retrying transient provider hiccups."""
     model = model or settings.llm_model
     provider, model_id = _split_model(model)
     if not _key_for(provider):
@@ -100,27 +112,42 @@ def complete(system: str, user: str, *, model: str | None = None) -> str:
             status_code=400,
             detail=f"No API key configured for provider {provider!r}. Set its *_API_KEY env var.",
         )
-    try:
-        if provider == "anthropic":
-            return _complete_anthropic(model_id, system, user)
-        return _complete_openai_compatible(provider, model_id, system, user)
-    except HTTPException:
-        raise
-    except Exception as exc:  # provider rejected the model/key, network error, etc.
-        # A timeout is the common failure with slow/queued free models — surface
-        # it clearly so the UI shows a real message instead of a dropped socket.
-        if exc.__class__.__name__ in ("APITimeoutError", "Timeout", "ReadTimeout"):
-            raise HTTPException(
-                status_code=504,
-                detail=(
-                    f"Model {model_id!r} timed out after {settings.llm_timeout:.0f}s. "
-                    "Free/queued models are often too slow to judge — try a faster paid model."
-                ),
-            ) from exc
-        raise HTTPException(
-            status_code=502,
-            detail=f"{provider} call failed for model {model_id!r}: {exc}",
-        ) from exc
+
+    attempts = max(1, settings.llm_retry_attempts)
+    last_exc: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            if provider == "anthropic":
+                return _complete_anthropic(model_id, system, user)
+            return _complete_openai_compatible(provider, model_id, system, user)
+        except HTTPException:
+            raise
+        except Exception as exc:  # provider rejected model/key, network error, bad body…
+            last_exc = exc
+            # A timeout means the model is simply too slow — don't retry (it'll just
+            # be slow again); surface it clearly.
+            if exc.__class__.__name__ in ("APITimeoutError", "Timeout", "ReadTimeout"):
+                raise HTTPException(
+                    status_code=504,
+                    detail=(
+                        f"Model {model_id!r} timed out after {settings.llm_timeout:.0f}s. "
+                        "Free/queued models are often too slow — try a faster or less busy model."
+                    ),
+                ) from exc
+            # Transient provider hiccup (e.g. an overloaded free endpoint returning a
+            # malformed/truncated body): wait a beat and try again.
+            if _is_transient(exc) and attempt < attempts - 1:
+                time.sleep(min(2 * (attempt + 1), 8))
+                continue
+            break
+
+    raise HTTPException(
+        status_code=502,
+        detail=(
+            f"{provider} call failed for model {model_id!r} after {attempts} attempt(s): {last_exc}. "
+            "Overloaded free models often return malformed responses — retry or pick a steadier model."
+        ),
+    )
 
 
 def parse_model_json(text: str) -> dict:
