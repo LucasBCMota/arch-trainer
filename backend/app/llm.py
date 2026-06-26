@@ -164,9 +164,24 @@ def parse_model_json(text: str) -> dict:
         if cleaned.rstrip().endswith("```"):
             cleaned = cleaned.rstrip()[: -len("```")]
     cleaned = cleaned.strip()
+    # Trim any prose before/after the JSON object (some models add a sentence).
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start != -1 and end > start:
+        cleaned = cleaned[start : end + 1]
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as exc:
+        # Weak/free models frequently emit *almost* valid JSON (unescaped newlines
+        # inside strings — common with embedded Mermaid — missing commas, etc.).
+        # Try to repair it before giving up.
+        try:
+            from json_repair import repair_json
+
+            repaired = repair_json(cleaned, return_objects=True)
+            if isinstance(repaired, dict) and repaired:
+                return repaired
+        except Exception:
+            pass
         raise HTTPException(
             status_code=502,
             detail=f"Model did not return valid JSON: {exc}. Raw start: {text[:200]!r}",

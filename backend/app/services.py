@@ -2,6 +2,7 @@
 
 import json
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session as DbSession
 
 from . import llm, prompts
@@ -22,6 +23,19 @@ from .schemas import ScenarioCreate, SessionCreate
 # Async job model: enqueue_* creates a `pending` row and returns immediately;
 # the worker thread (worker.py) later calls run_*_job to do the slow LLM call.
 # ---------------------------------------------------------------------------
+
+
+def _generate_json(system: str, user_prompt: str, model: str, attempts: int = 2) -> dict:
+    """complete() + parse, regenerating once if the model emits unrepairable JSON.
+    Cheap here because we're in the background worker, not a request."""
+    last: HTTPException | None = None
+    for _ in range(max(1, attempts)):
+        raw = llm.complete(system, user_prompt, model=model)
+        try:
+            return llm.parse_model_json(raw)
+        except HTTPException as exc:
+            last = exc  # malformed JSON even after repair — try a fresh generation
+    raise last  # type: ignore[misc]
 
 
 def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scenario:
@@ -49,14 +63,13 @@ def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scen
 def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
     """Worker side: do the LLM generation and fill the row in place."""
     structured = scenario.exercise_type == ExerciseType.structured
-    raw = llm.complete(
+    data = _generate_json(
         prompts.SCENARIO_SYSTEM,
         prompts.scenario_user_prompt(
             scenario.difficulty.value, scenario.focus_area, structured=structured
         ),
-        model=scenario.model,
+        scenario.model,
     )
-    data = llm.parse_model_json(raw)
     scenario.title = data["title"]
     scenario.context = data["context"]
     scenario.problem = data["problem"]
@@ -101,7 +114,7 @@ def run_session_job(db: DbSession, session: Session) -> None:
     """Worker side: judge the answer, fill the row, explode pattern gaps."""
     scenario = session.scenario
     structured = scenario.exercise_type == ExerciseType.structured
-    raw = llm.complete(
+    judgment = _generate_json(
         prompts.JUDGE_SYSTEM,
         prompts.judge_user_prompt(
             _scenario_block(scenario),
@@ -110,9 +123,8 @@ def run_session_job(db: DbSession, session: Session) -> None:
             structured=structured,
             requirements=list(scenario.constraints or []),
         ),
-        model=session.model,
+        session.model,
     )
-    judgment = llm.parse_model_json(raw)
     session.judgment = judgment
     session.score = int(judgment.get("score_1_to_5") or 0)
     session.status = JobStatus.ready
