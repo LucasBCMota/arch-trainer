@@ -1,7 +1,8 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { api } from "../api.js";
 import Markdown from "../Markdown.jsx";
 import Mermaid from "../Mermaid.jsx";
+import MermaidBuilder from "../MermaidBuilder.jsx";
 
 const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
 
@@ -20,7 +21,10 @@ export default function Answering({ scenario, onResult, onCancel }) {
   const [answer, setAnswer] = useState(() => buildTemplate(scenario));
   const [showPreview, setShowPreview] = useState(structured);
   const [showFreehand, setShowFreehand] = useState(false);
-  const [freehand, setFreehand] = useState(null);
+  const [showBuilder, setShowBuilder] = useState(false);
+  // Captured in a ref (NOT state) so Excalidraw's frequent onChange never
+  // triggers a re-render loop (React error #185).
+  const freehandRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -31,7 +35,7 @@ export default function Answering({ scenario, onResult, onCancel }) {
       const pending = await api.createSession({
         scenario_id: scenario.id,
         user_answer: answer,
-        answer_freehand: freehand,
+        answer_freehand: freehandRef.current,
       });
       const ready = await api.poll(() => api.getSession(pending.id));
       onResult(ready);
@@ -96,6 +100,9 @@ export default function Answering({ scenario, onResult, onCancel }) {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2 style={{ margin: 0 }}>Your answer</h2>
           <div className="row">
+            <button className="ghost" onClick={() => setShowBuilder((s) => !s)}>
+              {showBuilder ? "hide builder" : "diagram builder"}
+            </button>
             <button className="ghost" onClick={() => setShowPreview((s) => !s)}>
               {showPreview ? "hide preview" : "show preview"}
             </button>
@@ -104,6 +111,14 @@ export default function Answering({ scenario, onResult, onCancel }) {
             </button>
           </div>
         </div>
+
+        {showBuilder && (
+          <MermaidBuilder
+            onInsert={(code) =>
+              setAnswer((a) => `${a.trimEnd()}\n\n\`\`\`mermaid\n${code}\n\`\`\`\n`)
+            }
+          />
+        )}
 
         <div className={showPreview ? "answer-split" : ""} style={{ marginTop: 12 }}>
           <textarea
@@ -127,7 +142,7 @@ export default function Answering({ scenario, onResult, onCancel }) {
               so you can compare. The graded diagram is the Mermaid in your answer.
             </p>
             <Suspense fallback={<p className="muted">Loading canvas…</p>}>
-              <ExcalidrawCanvas onScene={setFreehand} />
+              <ExcalidrawCanvas onScene={(s) => (freehandRef.current = s)} />
             </Suspense>
           </div>
         )}

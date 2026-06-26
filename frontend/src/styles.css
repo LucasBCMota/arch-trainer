@@ -421,6 +421,26 @@ button.link {
   border-color: var(--accent);
 }
 
+/* mermaid block builder */
+.builder {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 14px;
+  margin: 12px 0;
+}
+.builder-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .builder-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* structured answer: editor + live preview side by side */
 .answer-split {
   display: grid;
