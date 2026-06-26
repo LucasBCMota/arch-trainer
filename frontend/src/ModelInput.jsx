@@ -15,44 +15,54 @@ export function useModelSelection() {
   return [model, set];
 }
 
-// Free-text model entry with favorites (saved to your account) + suggestions.
-// Type any OpenRouter slug, ★ it to save, or click a favorite to apply it.
+// Free-text model entry + a saved list (synced to your account). Type any
+// OpenRouter slug and Save it; ★ marks the default (moved to front, auto-selected);
+// ✕ deletes one. The first saved model is the default.
 export default function ModelInput({ value, onChange }) {
   const [models, setModels] = useState(null);
-  const [favorites, setFavorites] = useState([]);
+  const [saved, setSaved] = useState([]);
 
   useEffect(() => {
     api.models().then(setModels).catch(() => {});
     api
       .me()
       .then((m) => {
-        const favs = m.user?.favorite_models || [];
-        setFavorites(favs);
-        // Default to the top favorite if nothing is selected yet.
-        if (!localStorage.getItem(LS_KEY) && favs.length) onChange(favs[0]);
+        const list = m.user?.favorite_models || [];
+        setSaved(list);
+        if (!localStorage.getItem(LS_KEY) && list.length) onChange(list[0]); // default = front
       })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function persist(next) {
+    const prev = saved;
+    setSaved(next); // optimistic
+    try {
+      const res = await api.setFavoriteModels(next);
+      setSaved(res.favorite_models);
+    } catch {
+      setSaved(prev); // revert
+    }
+  }
+
+  const trimmed = (value || "").trim();
+
+  function save() {
+    if (!trimmed || saved.includes(trimmed)) return;
+    persist([...saved, trimmed]);
+  }
+  function remove(m) {
+    persist(saved.filter((x) => x !== m));
+  }
+  function makeDefault(m) {
+    persist([m, ...saved.filter((x) => x !== m)]); // move to front
+    onChange(m);
+  }
+
   const suggestions = models
     ? Object.entries(models.suggested).flatMap(([prov, ids]) => ids.map((id) => `${prov}:${id}`))
     : [];
-  const datalistOptions = [...new Set([...favorites, ...suggestions])];
-
-  const trimmed = (value || "").trim();
-  const isFav = favorites.includes(trimmed);
-
-  async function toggleFav() {
-    if (!trimmed) return;
-    const next = isFav ? favorites.filter((m) => m !== trimmed) : [trimmed, ...favorites];
-    setFavorites(next); // optimistic
-    try {
-      const res = await api.setFavoriteModels(next);
-      setFavorites(res.favorite_models);
-    } catch {
-      setFavorites(favorites); // revert
-    }
-  }
+  const datalistOptions = [...new Set([...saved, ...suggestions])];
 
   return (
     <>
@@ -70,11 +80,11 @@ export default function ModelInput({ value, onChange }) {
         <button
           type="button"
           className="ghost"
-          onClick={toggleFav}
-          disabled={!trimmed}
-          title={isFav ? "Remove from favorites" : "Save as favorite"}
+          onClick={save}
+          disabled={!trimmed || saved.includes(trimmed)}
+          title="Save this model to your list"
         >
-          {isFav ? "★" : "☆"}
+          Save
         </button>
       </div>
       <datalist id="model-suggestions">
@@ -83,20 +93,37 @@ export default function ModelInput({ value, onChange }) {
         ))}
       </datalist>
 
-      {favorites.length > 0 && (
-        <div className="chips" style={{ marginTop: 8 }}>
-          {favorites.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`chip ${trimmed === m ? "on" : ""}`}
-              onClick={() => onChange(m)}
-              title="Use this model"
-            >
-              ★ {m}
-            </button>
+      {saved.length > 0 && (
+        <ul className="model-list">
+          {saved.map((m, i) => (
+            <li key={m} className={value === m ? "on" : ""}>
+              <button type="button" className="link" onClick={() => onChange(m)} title="Use this model">
+                {i === 0 ? "★ " : ""}
+                {m}
+              </button>
+              <span className="row" style={{ gap: 4 }}>
+                {i !== 0 && (
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    onClick={() => makeDefault(m)}
+                    title="Make default"
+                  >
+                    ☆
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="iconbtn"
+                  onClick={() => remove(m)}
+                  title="Delete"
+                >
+                  ✕
+                </button>
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </>
   );
