@@ -44,17 +44,31 @@ SCENARIO_JSON_SHAPE = """{
 }"""
 
 
-def scenario_user_prompt(difficulty: str, focus_area: str) -> str:
+STRUCTURED_ADDENDUM = """
+This is a STRUCTURED DESIGN exercise. The candidate will fill in a templated answer and you grade the
+content of their design. Add these fields to the JSON above:
+- "response_template": an array of {"section": "...", "guidance": "..."} objects — the sections the
+  candidate should fill in, TAILORED to this scenario (e.g. "Requirements", "Infrastructure",
+  "Actions per requirement", "Data model"). ALWAYS include a final section {"section": "Diagram",
+  "guidance": "Provide a Mermaid diagram of your architecture."}.
+- "context_diagram": a Mermaid diagram (string) of the CURRENT/given system if one helps, else null.
+- inside "reference_solution", also add "diagram_mermaid": a Mermaid diagram of the RECOMMENDED
+  architecture.
+All Mermaid must be valid `flowchart TD` / `graph TD` syntax."""
+
+
+def scenario_user_prompt(difficulty: str, focus_area: str, structured: bool = False) -> str:
     calibration = DIFFICULTY_CALIBRATION[difficulty]
     focus_line = (
         "Any focus area is fine."
         if focus_area in ("", "any")
         else f"Bias the scenario toward this focus area: {focus_area}."
     )
+    addendum = STRUCTURED_ADDENDUM if structured else ""
     return (
         f"Generate a system-design exercise at this difficulty:\n{calibration}\n\n"
         f"{focus_line}\n\n"
-        f"Respond with JSON in exactly this shape:\n{SCENARIO_JSON_SHAPE}"
+        f"Respond with JSON in exactly this shape:\n{SCENARIO_JSON_SHAPE}{addendum}"
     )
 
 
@@ -123,7 +137,42 @@ def cheatsheet_user_prompt(topic: str) -> str:
     )
 
 
-def judge_user_prompt(scenario_block: str, reference_block: str, candidate_answer: str) -> str:
+JUDGE_STRUCTURED_JSON_SHAPE = """{
+  "overall_assessment": "feature-level | platform-level | principal-level",
+  "matched_points": ["..."],
+  "missed_points": ["..."],
+  "unnamed_patterns": [{"what_they_described": "...", "pattern_name": "..."}],
+  "requirement_coverage": [
+    {"requirement": "the constraint/requirement", "status": "covered | partial | missing", "comment": "how the design addresses it, or what's missing"}
+  ],
+  "genuine_disagreements": ["cases where candidate's approach is defensible, not wrong"],
+  "communication_gaps": ["reasoning was present but not clearly justified"],
+  "score_1_to_5": 0,
+  "one_line_verdict": "single direct sentence"
+}"""
+
+
+def judge_user_prompt(
+    scenario_block: str,
+    reference_block: str,
+    candidate_answer: str,
+    *,
+    structured: bool = False,
+    requirements: list[str] | None = None,
+) -> str:
+    if structured:
+        reqs = "\n".join(f"- {r}" for r in (requirements or [])) or "(none listed)"
+        return (
+            "Judge the candidate's DESIGN by its actual content, not just whether they named "
+            "patterns. For EACH requirement below, decide if the design covers it (covered / partial "
+            "/ missing) and why. The candidate's answer includes a Mermaid diagram — read it as part "
+            "of the design.\n\n"
+            f"## SCENARIO\n{scenario_block}\n\n"
+            f"## REQUIREMENTS TO COVER\n{reqs}\n\n"
+            f"## REFERENCE SOLUTION (ground truth, incl. its Mermaid diagram)\n{reference_block}\n\n"
+            f"## CANDIDATE'S ANSWER\n{candidate_answer}\n\n"
+            f"Respond with JSON in exactly this shape:\n{JUDGE_STRUCTURED_JSON_SHAPE}"
+        )
     return (
         "Judge the candidate's architectural reasoning.\n\n"
         f"## SCENARIO\n{scenario_block}\n\n"

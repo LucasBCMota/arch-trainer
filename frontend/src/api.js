@@ -78,6 +78,7 @@ export const api = {
   importNote: (body) =>
     req("/study-notes", { method: "POST", body: JSON.stringify(body) }),
   studyNotes: (params = "") => req(`/study-notes${params}`),
+  studyNote: (id) => req(`/study-notes/${id}`),
   updateNote: (id, body) =>
     req(`/study-notes/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   pinNote: (id, pinned) =>

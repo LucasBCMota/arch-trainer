@@ -26,9 +26,10 @@ export default function Study({ isOwner = true }) {
     setBusy(true);
     setError(null);
     try {
-      const note = await api.study(t, model);
-      setNotes((n) => [note, ...n]);
-      setOpen(note);
+      const pending = await api.study(t, model); // queued
+      const ready = await api.poll(() => api.studyNote(pending.id));
+      setNotes((n) => [ready, ...n]);
+      setOpen(ready);
       setTopic("");
     } catch (e) {
       setError(e.message);

@@ -19,7 +19,7 @@ from sqlalchemy import delete, select
 from . import services
 from .config import settings
 from .db import SessionLocal
-from .models import JobStatus, Scenario, Session
+from .models import JobStatus, Scenario, Session, StudyNote
 
 log = logging.getLogger("worker")
 POLL_INTERVAL = 2.0  # seconds between polls when the queue is empty
@@ -36,7 +36,7 @@ def reclaim_stale_jobs() -> None:
     db = SessionLocal()
     try:
         dropped = 0
-        for model in (Scenario, Session):
+        for model in (Scenario, Session, StudyNote):
             res = db.execute(
                 delete(model).where(model.status == JobStatus.running, model.created_at < cutoff)
             )
@@ -105,6 +105,10 @@ def process_once() -> bool:
         jid = _claim(db, Session)
         if jid is not None:
             _run(db, Session, jid, services.run_session_job)
+            return True
+        nid = _claim(db, StudyNote)
+        if nid is not None:
+            _run(db, StudyNote, nid, services.run_study_note_job)
             return True
         return False
     finally:

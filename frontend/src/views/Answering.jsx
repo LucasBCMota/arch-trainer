@@ -1,8 +1,26 @@
-import { useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { api } from "../api.js";
+import Markdown from "../Markdown.jsx";
+import Mermaid from "../Mermaid.jsx";
+
+const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
+
+function buildTemplate(scenario) {
+  const tpl = scenario.response_template;
+  if (tpl?.length) {
+    return tpl
+      .map((s) => `## ${s.section}\n${s.guidance ? `<!-- ${s.guidance} -->\n` : ""}`)
+      .join("\n");
+  }
+  return "";
+}
 
 export default function Answering({ scenario, onResult, onCancel }) {
-  const [answer, setAnswer] = useState("");
+  const structured = scenario.exercise_type === "structured";
+  const [answer, setAnswer] = useState(() => buildTemplate(scenario));
+  const [showPreview, setShowPreview] = useState(structured);
+  const [showFreehand, setShowFreehand] = useState(false);
+  const [freehand, setFreehand] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -13,6 +31,7 @@ export default function Answering({ scenario, onResult, onCancel }) {
       const pending = await api.createSession({
         scenario_id: scenario.id,
         user_answer: answer,
+        answer_freehand: freehand,
       });
       const ready = await api.poll(() => api.getSession(pending.id));
       onResult(ready);
@@ -21,6 +40,10 @@ export default function Answering({ scenario, onResult, onCancel }) {
       setLoading(false);
     }
   }
+
+  const placeholder = structured
+    ? "Fill in each section. Put your architecture in a ```mermaid block under Diagram."
+    : "Walk through your design: key decisions, tradeoffs, failure modes, open questions…";
 
   if (loading) {
     return (
@@ -40,16 +63,25 @@ export default function Answering({ scenario, onResult, onCancel }) {
       <div className="panel">
         <h2>
           {scenario.difficulty}-level · {scenario.focus_area}
+          {structured ? " · structured" : ""}
         </h2>
         <h3 style={{ marginTop: 0, fontSize: 20 }}>{scenario.title}</h3>
         <p className="muted">{scenario.context}</p>
         <p>
           <strong>Problem.</strong> {scenario.problem}
         </p>
+        {scenario.context_diagram && (
+          <>
+            <label className="field" style={{ marginTop: 14 }}>
+              Given system
+            </label>
+            <Mermaid chart={scenario.context_diagram} />
+          </>
+        )}
         {scenario.constraints?.length > 0 && (
           <>
             <label className="field" style={{ marginTop: 14 }}>
-              Constraints
+              {structured ? "Requirements" : "Constraints"}
             </label>
             <ul className="constraints">
               {scenario.constraints.map((c, i) => (
@@ -61,16 +93,48 @@ export default function Answering({ scenario, onResult, onCancel }) {
       </div>
 
       <div className="panel">
-        <h2>Your answer</h2>
-        <textarea
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          placeholder="Walk through your design: key decisions, tradeoffs, failure modes, open questions…"
-          autoFocus
-        />
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>Your answer</h2>
+          <div className="row">
+            <button className="ghost" onClick={() => setShowPreview((s) => !s)}>
+              {showPreview ? "hide preview" : "show preview"}
+            </button>
+            <button className="ghost" onClick={() => setShowFreehand((s) => !s)}>
+              {showFreehand ? "hide freehand" : "freehand sketch"}
+            </button>
+          </div>
+        </div>
+
+        <div className={showPreview ? "answer-split" : ""} style={{ marginTop: 12 }}>
+          <textarea
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder={placeholder}
+            autoFocus
+            style={{ minHeight: structured ? 380 : 320 }}
+          />
+          {showPreview && (
+            <div className="preview">
+              <Markdown>{answer}</Markdown>
+            </div>
+          )}
+        </div>
+
+        {showFreehand && (
+          <div style={{ marginTop: 12 }}>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Optional sketchpad to think — <b>not graded</b>, but saved next to the reference diagram
+              so you can compare. The graded diagram is the Mermaid in your answer.
+            </p>
+            <Suspense fallback={<p className="muted">Loading canvas…</p>}>
+              <ExcalidrawCanvas onScene={setFreehand} />
+            </Suspense>
+          </div>
+        )}
+
         <div className="row" style={{ marginTop: 16 }}>
           <button className="primary" onClick={submit} disabled={loading || !answer.trim()}>
-            {loading ? "Judging…" : "Submit for judgment"}
+            Submit for judgment
           </button>
           <button className="ghost" onClick={onCancel}>
             Cancel

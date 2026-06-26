@@ -13,9 +13,15 @@ const FOCUS_AREAS = [
   "consistency",
 ];
 
+const EXERCISE_TYPES = [
+  ["free_form", "free-form"],
+  ["structured", "structured design"],
+];
+
 export default function Setup({ onScenario, isOwner = true }) {
   const [difficulty, setDifficulty] = useState("feature");
   const [focus, setFocus] = useState("any");
+  const [exerciseType, setExerciseType] = useState("free_form");
   const [models, setModels] = useState(null);
   const [model, setModel] = useModelSelection();
   const [gaps, setGaps] = useState([]);
@@ -36,7 +42,7 @@ export default function Setup({ onScenario, isOwner = true }) {
     setLoading(true);
     setError(null);
     try {
-      const body = { difficulty, focus_area: focus };
+      const body = { difficulty, focus_area: focus, exercise_type: exerciseType };
       if (model) body.model = model;
       const pending = await api.createScenario(body); // returns immediately
       const ready = await api.poll(() => api.getScenario(pending.id));
@@ -88,6 +94,24 @@ export default function Setup({ onScenario, isOwner = true }) {
               onClick={() => setFocus(f)}
             >
               {f}
+            </button>
+          ))}
+        </div>
+
+        <label className="field">Exercise type</label>
+        <div className="chips">
+          {EXERCISE_TYPES.map(([val, label]) => (
+            <button
+              key={val}
+              className={`chip ${exerciseType === val ? "on" : ""}`}
+              onClick={() => setExerciseType(val)}
+              title={
+                val === "structured"
+                  ? "Templated answer + architecture diagram; graded on per-requirement coverage"
+                  : "Free-text answer; graded on reasoning + naming patterns"
+              }
+            >
+              {label}
             </button>
           ))}
         </div>

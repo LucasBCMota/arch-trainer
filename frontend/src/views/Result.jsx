@@ -1,8 +1,18 @@
+import { lazy, Suspense } from "react";
 import { api } from "../api.js";
+import Mermaid from "../Mermaid.jsx";
+
+const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
 
 function badgeClass(score) {
   if (score >= 4) return "green";
   if (score === 3) return "yellow";
+  return "red";
+}
+
+function covClass(status) {
+  if (status === "covered") return "green";
+  if (status === "partial") return "yellow";
   return "red";
 }
 
@@ -33,6 +43,54 @@ export default function Result({ scenario, result, onNext }) {
           </div>
         </div>
       </div>
+
+      {j.requirement_coverage?.length > 0 && (
+        <div className="panel">
+          <h2>Requirement coverage</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Requirement</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {j.requirement_coverage.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.requirement}</td>
+                  <td>
+                    <span className={`pill ${covClass(r.status)}`}>{r.status}</span>
+                  </td>
+                  <td className="muted">{r.comment}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {(ref?.diagram_mermaid || result.answer_freehand) && (
+        <div className="panel">
+          <h2>Diagram</h2>
+          <div className="answer-split">
+            {ref?.diagram_mermaid && (
+              <div>
+                <label className="field">Reference architecture</label>
+                <Mermaid chart={ref.diagram_mermaid} />
+              </div>
+            )}
+            {result.answer_freehand && (
+              <div>
+                <label className="field">Your sketch (not graded)</label>
+                <Suspense fallback={<p className="muted">Loading…</p>}>
+                  <ExcalidrawCanvas initialData={result.answer_freehand} viewMode height={320} />
+                </Suspense>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {j.unnamed_patterns?.length > 0 && (
         <div className="panel">

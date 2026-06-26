@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DbSession
 from . import llm, prompts
 from .config import settings
 from .models import (
+    ExerciseType,
     JobStatus,
     PatternGap,
     Scenario,
@@ -28,11 +29,13 @@ def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scen
     scenario = Scenario(
         difficulty=payload.difficulty,
         focus_area=payload.focus_area,
+        exercise_type=payload.exercise_type,
         title="",
         context="",
         problem="",
         constraints=[],
         reference_solution={},
+        response_template=[],
         model=payload.model or settings.llm_model,
         user_id=user.id,
         status=JobStatus.pending,
@@ -45,9 +48,12 @@ def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scen
 
 def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
     """Worker side: do the LLM generation and fill the row in place."""
+    structured = scenario.exercise_type == ExerciseType.structured
     raw = llm.complete(
         prompts.SCENARIO_SYSTEM,
-        prompts.scenario_user_prompt(scenario.difficulty.value, scenario.focus_area),
+        prompts.scenario_user_prompt(
+            scenario.difficulty.value, scenario.focus_area, structured=structured
+        ),
         model=scenario.model,
     )
     data = llm.parse_model_json(raw)
@@ -56,6 +62,9 @@ def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
     scenario.problem = data["problem"]
     scenario.constraints = data.get("constraints", [])
     scenario.reference_solution = data["reference_solution"]
+    if structured:
+        scenario.response_template = data.get("response_template", [])
+        scenario.context_diagram = data.get("context_diagram") or None
     scenario.status = JobStatus.ready
     scenario.error = None
     db.commit()
@@ -75,6 +84,7 @@ def enqueue_session(db: DbSession, payload: SessionCreate, scenario: Scenario, u
     session = Session(
         scenario_id=scenario.id,
         user_answer=payload.user_answer,
+        answer_freehand=payload.answer_freehand,  # stored, never judged
         judgment={},
         score=0,
         model=scenario.model,  # judge with the model that generated the scenario
@@ -90,12 +100,15 @@ def enqueue_session(db: DbSession, payload: SessionCreate, scenario: Scenario, u
 def run_session_job(db: DbSession, session: Session) -> None:
     """Worker side: judge the answer, fill the row, explode pattern gaps."""
     scenario = session.scenario
+    structured = scenario.exercise_type == ExerciseType.structured
     raw = llm.complete(
         prompts.JUDGE_SYSTEM,
         prompts.judge_user_prompt(
             _scenario_block(scenario),
             json.dumps(scenario.reference_solution, indent=2),
             session.user_answer,
+            structured=structured,
+            requirements=list(scenario.constraints or []),
         ),
         model=session.model,
     )
@@ -116,23 +129,36 @@ def run_session_job(db: DbSession, session: Session) -> None:
     db.commit()
 
 
-def generate_study_note(
+def enqueue_study_note(
     db: DbSession, topic: str, kind: StudyNoteKind, model: str | None, user: User
 ) -> StudyNote:
-    """AI-generate a Markdown study note or cheat-sheet and store it.
-
-    Markdown output (not JSON), so this never goes through parse_model_json —
-    robust even on small/free models.
-    """
-    model = model or settings.llm_model
-    if kind == StudyNoteKind.cheat_sheet:
-        system, user_prompt = prompts.CHEATSHEET_SYSTEM, prompts.cheatsheet_user_prompt(topic)
-    else:
-        system, user_prompt = prompts.STUDY_SYSTEM, prompts.study_user_prompt(topic)
-
-    content = llm.complete(system, user_prompt, model=model).strip()
-    note = StudyNote(kind=kind, topic=topic, content_md=content, model=model, user_id=user.id)
+    """Create a pending study-note job — no LLM call here."""
+    note = StudyNote(
+        kind=kind,
+        topic=topic,
+        content_md="",
+        model=model or settings.llm_model,
+        user_id=user.id,
+        status=JobStatus.pending,
+    )
     db.add(note)
     db.commit()
     db.refresh(note)
     return note
+
+
+def run_study_note_job(db: DbSession, note: StudyNote) -> None:
+    """Worker side: AI-generate the Markdown body and fill the row.
+
+    Markdown output (not JSON), so this never goes through parse_model_json —
+    robust even on small/free models.
+    """
+    if note.kind == StudyNoteKind.cheat_sheet:
+        system, user_prompt = prompts.CHEATSHEET_SYSTEM, prompts.cheatsheet_user_prompt(note.topic)
+    else:
+        system, user_prompt = prompts.STUDY_SYSTEM, prompts.study_user_prompt(note.topic)
+
+    note.content_md = llm.complete(system, user_prompt, model=note.model).strip()
+    note.status = JobStatus.ready
+    note.error = None
+    db.commit()

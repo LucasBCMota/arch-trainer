@@ -421,6 +421,67 @@ button.link {
   border-color: var(--accent);
 }
 
+/* structured answer: editor + live preview side by side */
+.answer-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .answer-split {
+    grid-template-columns: 1fr;
+  }
+}
+.answer-split .preview {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+/* coverage status pill */
+.pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pill.green {
+  background: rgba(47, 191, 113, 0.15);
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+.pill.yellow {
+  background: rgba(232, 179, 57, 0.15);
+  color: var(--yellow);
+  border: 1px solid var(--yellow);
+}
+.pill.red {
+  background: rgba(229, 72, 77, 0.15);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+/* rendered mermaid diagram */
+.mermaid-svg {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  text-align: center;
+}
+.mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* waiting spinner (async jobs) */
 .spinner {
   width: 36px;

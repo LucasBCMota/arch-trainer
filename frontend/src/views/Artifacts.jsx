@@ -105,7 +105,8 @@ function CheatSheets({ isOwner = true }) {
     setBusy(true);
     setError(null);
     try {
-      const n = await api.cheatsheet(topic, model);
+      const pending = await api.cheatsheet(topic, model); // queued
+      const n = await api.poll(() => api.studyNote(pending.id));
       setNotes((xs) => [n, ...xs]);
       setTopic("");
     } catch (e) {

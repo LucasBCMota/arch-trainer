@@ -8,7 +8,7 @@ from .. import services
 from ..access import assert_owner, assert_visible
 from ..auth import current_user, require_owner
 from ..db import get_db
-from ..models import Scenario, Session, StudyNote, StudyNoteKind, User, Visibility
+from ..models import JobStatus, Scenario, Session, StudyNote, StudyNoteKind, User, Visibility
 from ..schemas import (
     PinBody,
     ReferenceArtifactOut,
@@ -23,18 +23,19 @@ router = APIRouter(prefix="/api", tags=["library"])
 
 
 # ---- AI-generated study notes / cheat-sheets (owner-only: spends keys) ----
+# Enqueued as background jobs; poll GET /api/study-notes/{id} until ready.
 @router.post("/study", response_model=StudyNoteOut)
 def create_study(
     payload: StudyCreate, db: DbSession = Depends(get_db), owner: User = Depends(require_owner)
 ) -> StudyNote:
-    return services.generate_study_note(db, payload.topic, StudyNoteKind.deep_dive, payload.model, owner)
+    return services.enqueue_study_note(db, payload.topic, StudyNoteKind.deep_dive, payload.model, owner)
 
 
 @router.post("/cheatsheets", response_model=StudyNoteOut)
 def create_cheatsheet(
     payload: StudyCreate, db: DbSession = Depends(get_db), owner: User = Depends(require_owner)
 ) -> StudyNote:
-    return services.generate_study_note(db, payload.topic, StudyNoteKind.cheat_sheet, payload.model, owner)
+    return services.enqueue_study_note(db, payload.topic, StudyNoteKind.cheat_sheet, payload.model, owner)
 
 
 # ---- Manual import (any user — no LLM call, no token cost) ----
@@ -164,7 +165,7 @@ def _note_out(note: StudyNote, user: User) -> StudyNoteOut:
 def public_notes(db: DbSession = Depends(get_db), _: User = Depends(current_user)) -> list[StudyNoteOut]:
     stmt = (
         select(StudyNote)
-        .where(StudyNote.visibility == Visibility.public)
+        .where(StudyNote.visibility == Visibility.public, StudyNote.status == JobStatus.ready)
         .order_by(StudyNote.created_at.desc())
     )
     notes = db.scalars(stmt).all()

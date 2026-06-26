@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from .models import Difficulty, JobStatus, Visibility
+from .models import Difficulty, ExerciseType, JobStatus, Visibility
 
 
 # ---- Reference solution shape (generated, ground truth) ----
@@ -19,12 +19,20 @@ class ReferenceSolution(BaseModel):
     tradeoffs_considered: list[str] = []
     failure_modes_addressed: list[str] = []
     open_questions_for_pm: list[str] = []
+    # structured exercises: a Mermaid diagram of the recommended architecture
+    diagram_mermaid: str | None = None
 
 
 # ---- Judgment shape ----
 class UnnamedPattern(BaseModel):
     what_they_described: str
     pattern_name: str
+
+
+class RequirementCoverage(BaseModel):
+    requirement: str
+    status: str  # covered | partial | missing
+    comment: str = ""
 
 
 class Judgment(BaseModel):
@@ -34,6 +42,7 @@ class Judgment(BaseModel):
     unnamed_patterns: list[UnnamedPattern] = []
     genuine_disagreements: list[str] = []
     communication_gaps: list[str] = []
+    requirement_coverage: list[RequirementCoverage] = []  # structured exercises
     score_1_to_5: int
     one_line_verdict: str
 
@@ -42,6 +51,7 @@ class Judgment(BaseModel):
 class ScenarioCreate(BaseModel):
     difficulty: Difficulty
     focus_area: str = "any"
+    exercise_type: ExerciseType = ExerciseType.free_form
     model: str | None = None  # optional per-request override of LLM_MODEL
 
 
@@ -60,6 +70,9 @@ class ScenarioOut(BaseModel):
     problem: str
     constraints: list
     model: str
+    exercise_type: ExerciseType = ExerciseType.free_form
+    response_template: list = []  # visible answer-section template (structured only)
+    context_diagram: str | None = None
     visibility: Visibility = Visibility.private
     status: JobStatus = JobStatus.ready
     error: str | None = None
@@ -81,6 +94,7 @@ class ScenarioListItem(ScenarioOut):
 class SessionCreate(BaseModel):
     scenario_id: uuid.UUID
     user_answer: str
+    answer_freehand: dict | None = None  # Excalidraw scene; stored, never judged
 
 
 class SessionOut(BaseModel):
@@ -103,6 +117,7 @@ class SessionDetail(SessionOut):
     """GET /api/sessions/{id} — includes the reference once judging is ready."""
 
     reference_solution: ReferenceSolution | None = None
+    answer_freehand: dict | None = None  # for side-by-side comparison on results
 
 
 # ---- Stats / models ----
@@ -133,6 +148,8 @@ class StudyNoteOut(BaseModel):
     pinned: bool
     visibility: Visibility = Visibility.private
     author: str | None = None
+    status: JobStatus = JobStatus.ready
+    error: str | None = None
 
 
 class StudyCreate(BaseModel):

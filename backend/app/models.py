@@ -29,6 +29,11 @@ class StudyNoteKind(str, enum.Enum):
     cheat_sheet = "cheat_sheet"
 
 
+class ExerciseType(str, enum.Enum):
+    free_form = "free_form"    # free-text answer, pattern-naming focus
+    structured = "structured"  # templated answer, per-requirement content grading
+
+
 class Visibility(str, enum.Enum):
     private = "private"
     public = "public"
@@ -94,6 +99,15 @@ class Scenario(Base):
     reference_solution: Mapped[dict] = mapped_column(JSONB, default=dict)
     model: Mapped[str] = mapped_column(String(128))
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    exercise_type: Mapped[ExerciseType] = mapped_column(
+        Enum(ExerciseType, name="exercisetype"),
+        default=ExerciseType.free_form,
+        server_default="free_form",
+    )
+    # Visible answer-section template for structured exercises (no reference leak).
+    response_template: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
+    # Optional Mermaid diagram shown with the problem context.
+    context_diagram: Mapped[str | None] = mapped_column(Text, nullable=True)
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()
@@ -113,6 +127,8 @@ class Session(Base):
     judgment: Mapped[dict] = mapped_column(JSONB, default=dict)
     score: Mapped[int] = mapped_column(Integer)
     model: Mapped[str] = mapped_column(String(128))
+    # Optional Excalidraw freehand scene — stored for self-comparison, never judged.
+    answer_freehand: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()
@@ -149,5 +165,7 @@ class StudyNote(Base):
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
+    status: Mapped[JobStatus] = _status_col()
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped["User | None"] = relationship()
