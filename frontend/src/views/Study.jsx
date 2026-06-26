@@ -1,29 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import Markdown from "../Markdown.jsx";
-
-function ModelPicker({ models, value, onChange }) {
-  if (!models) return null;
-  const opts = Object.entries(models.suggested).flatMap(([prov, ids]) =>
-    ids.map((id) => `${prov}:${id}`)
-  );
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ maxWidth: 320 }}>
-      <option value="">default ({models.current})</option>
-      {opts.map((m) => (
-        <option key={m} value={m}>
-          {m}
-        </option>
-      ))}
-    </select>
-  );
-}
+import ModelInput, { useModelSelection } from "../ModelInput.jsx";
 
 export default function Study({ isOwner = true }) {
   const [gaps, setGaps] = useState([]);
   const [notes, setNotes] = useState([]);
-  const [models, setModels] = useState(null);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useModelSelection();
   const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -36,7 +19,6 @@ export default function Study({ isOwner = true }) {
   useEffect(() => {
     load();
     api.patternGaps().then((g) => setGaps(g.slice(0, 8))).catch(() => {});
-    api.models().then(setModels).catch(() => {});
   }, []);
 
   async function generate(t) {
@@ -99,7 +81,7 @@ export default function Study({ isOwner = true }) {
         {isOwner && (
           <>
             <label className="field">Model</label>
-            <ModelPicker models={models} value={model} onChange={setModel} />
+            <ModelInput value={model} onChange={setModel} />
           </>
         )}
         <div className="row" style={{ marginTop: 14 }}>

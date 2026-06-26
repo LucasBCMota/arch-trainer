@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import Markdown from "../Markdown.jsx";
+import ModelInput, { useModelSelection } from "../ModelInput.jsx";
 import { ImportForm } from "./Study.jsx";
 
 const TABS = [
@@ -89,8 +90,7 @@ function References() {
 
 function CheatSheets({ isOwner = true }) {
   const [notes, setNotes] = useState([]);
-  const [models, setModels] = useState(null);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useModelSelection();
   const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -98,12 +98,7 @@ function CheatSheets({ isOwner = true }) {
 
   useEffect(() => {
     api.studyNotes("?kind=cheat_sheet").then(setNotes).catch((e) => setError(e.message));
-    api.models().then(setModels).catch(() => {});
   }, []);
-
-  const opts = models
-    ? Object.entries(models.suggested).flatMap(([p, ids]) => ids.map((id) => `${p}:${id}`))
-    : [];
 
   async function generate() {
     if (!topic.trim()) return;
@@ -137,16 +132,7 @@ function CheatSheets({ isOwner = true }) {
     <>
       <div className="panel">
         <h2>Make a cheat-sheet</h2>
-        {isOwner && models && (
-          <select value={model} onChange={(e) => setModel(e.target.value)} style={{ maxWidth: 320 }}>
-            <option value="">default ({models.current})</option>
-            {opts.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        )}
+        {isOwner && <ModelInput value={model} onChange={setModel} />}
         <div className="row" style={{ marginTop: 12 }}>
           {isOwner && (
             <>

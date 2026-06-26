@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import ModelInput, { useModelSelection } from "../ModelInput.jsx";
 
 const DIFFICULTIES = ["feature", "platform", "principal"];
 const FOCUS_AREAS = [
@@ -16,7 +17,7 @@ export default function Setup({ onScenario, isOwner = true }) {
   const [difficulty, setDifficulty] = useState("feature");
   const [focus, setFocus] = useState("any");
   const [models, setModels] = useState(null);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useModelSelection();
   const [gaps, setGaps] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -25,13 +26,6 @@ export default function Setup({ onScenario, isOwner = true }) {
     api.models().then(setModels).catch((e) => setError(e.message));
     api.patternGaps().then((g) => setGaps(g.slice(0, 5))).catch(() => {});
   }, []);
-
-  // flatten suggested provider->models into "provider:model" options
-  const modelOptions = models
-    ? Object.entries(models.suggested).flatMap(([prov, ids]) =>
-        ids.map((id) => `${prov}:${id}`)
-      )
-    : [];
 
   async function generate() {
     setLoading(true);
@@ -79,20 +73,11 @@ export default function Setup({ onScenario, isOwner = true }) {
         </div>
 
         <label className="field">Model</label>
-        {models && models.available.length === 0 ? (
-          <p className="error">
-            No provider key configured. Set ANTHROPIC_API_KEY (or OPENAI/OPENROUTER) in the backend
-            env.
+        <ModelInput value={model} onChange={setModel} />
+        {models && models.available.length === 0 && (
+          <p className="error" style={{ marginTop: 8 }}>
+            No provider key configured on the server. Set ANTHROPIC_API_KEY (or OPENAI/OPENROUTER).
           </p>
-        ) : (
-          <select value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="">default ({models ? models.current : "…"})</option>
-            {modelOptions.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
         )}
 
         <div style={{ marginTop: 20 }}>
