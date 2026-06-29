@@ -16,12 +16,17 @@ const FOCUS_AREAS = [
 const EXERCISE_TYPES = [
   ["free_form", "free-form"],
   ["structured", "structured design"],
+  ["language", "language gotcha"],
+  ["algorithms", "algorithms"],
 ];
+
+const LANGUAGES = ["Python", "JavaScript", "TypeScript", "Java", "C++", "Go", "Rust", "SQL", "C#", "Ruby"];
 
 export default function Setup({ onScenario, isOwner = true }) {
   const [difficulty, setDifficulty] = useState("feature");
   const [focus, setFocus] = useState("any");
   const [exerciseType, setExerciseType] = useState("free_form");
+  const [language, setLanguage] = useState("Python");
   const [models, setModels] = useState(null);
   const [model, setModel] = useModelSelection();
   const [gaps, setGaps] = useState([]);
@@ -43,6 +48,7 @@ export default function Setup({ onScenario, isOwner = true }) {
     setError(null);
     try {
       const body = { difficulty, focus_area: focus, exercise_type: exerciseType };
+      if (exerciseType === "language" || exerciseType === "algorithms") body.language = language;
       if (model) body.model = model;
       const pending = await api.createScenario(body); // returns immediately
       const ready = await api.poll(() => api.getScenario(pending.id));
@@ -115,6 +121,20 @@ export default function Setup({ onScenario, isOwner = true }) {
             </button>
           ))}
         </div>
+
+        {(exerciseType === "language" || exerciseType === "algorithms") && (
+          <>
+            <label className="field">Language</label>
+            <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ maxWidth: 220 }}>
+              {exerciseType === "algorithms" && <option value="any">any</option>}
+              {LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
 
         <label className="field">Model</label>
         <ModelInput value={model} onChange={setModel} />

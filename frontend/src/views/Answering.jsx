@@ -5,6 +5,7 @@ import Mermaid from "../Mermaid.jsx";
 import MermaidBuilder from "../MermaidBuilder.jsx";
 
 const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
+const CodeEditor = lazy(() => import("../CodeEditor.jsx"));
 
 function buildTemplate(scenario) {
   const tpl = scenario.response_template;
@@ -18,6 +19,7 @@ function buildTemplate(scenario) {
 
 export default function Answering({ scenario, onResult, onCancel }) {
   const structured = scenario.exercise_type === "structured";
+  const isCode = scenario.exercise_type === "language" || scenario.exercise_type === "algorithms";
   const [answer, setAnswer] = useState(() => buildTemplate(scenario));
   const [showPreview, setShowPreview] = useState(structured);
   const [showFreehand, setShowFreehand] = useState(false);
@@ -100,19 +102,23 @@ export default function Answering({ scenario, onResult, onCancel }) {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2 style={{ margin: 0 }}>Your answer</h2>
           <div className="row">
-            <button className="ghost" onClick={() => setShowBuilder((s) => !s)}>
-              {showBuilder ? "hide builder" : "diagram builder"}
-            </button>
+            {!isCode && (
+              <button className="ghost" onClick={() => setShowBuilder((s) => !s)}>
+                {showBuilder ? "hide builder" : "diagram builder"}
+              </button>
+            )}
             <button className="ghost" onClick={() => setShowPreview((s) => !s)}>
               {showPreview ? "hide preview" : "show preview"}
             </button>
-            <button className="ghost" onClick={() => setShowFreehand((s) => !s)}>
-              {showFreehand ? "hide freehand" : "freehand sketch"}
-            </button>
+            {!isCode && (
+              <button className="ghost" onClick={() => setShowFreehand((s) => !s)}>
+                {showFreehand ? "hide freehand" : "freehand sketch"}
+              </button>
+            )}
           </div>
         </div>
 
-        {showBuilder && (
+        {!isCode && showBuilder && (
           <MermaidBuilder
             onInsert={(code) =>
               setAnswer((a) => `${a.trimEnd()}\n\n\`\`\`mermaid\n${code}\n\`\`\`\n`)
@@ -121,13 +127,19 @@ export default function Answering({ scenario, onResult, onCancel }) {
         )}
 
         <div className={showPreview ? "answer-split" : ""} style={{ marginTop: 12 }}>
-          <textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            placeholder={placeholder}
-            autoFocus
-            style={{ minHeight: structured ? 380 : 320 }}
-          />
+          {isCode ? (
+            <Suspense fallback={<textarea value={answer} onChange={(e) => setAnswer(e.target.value)} />}>
+              <CodeEditor value={answer} onChange={setAnswer} language={scenario.language} />
+            </Suspense>
+          ) : (
+            <textarea
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder={placeholder}
+              autoFocus
+              style={{ minHeight: structured ? 380 : 320 }}
+            />
+          )}
           {showPreview && (
             <div className="preview">
               <Markdown>{answer}</Markdown>

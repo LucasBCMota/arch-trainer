@@ -32,6 +32,8 @@ class StudyNoteKind(str, enum.Enum):
 class ExerciseType(str, enum.Enum):
     free_form = "free_form"    # free-text answer, pattern-naming focus
     structured = "structured"  # templated answer, per-requirement content grading
+    language = "language"      # language-specific behavior/gotcha question
+    algorithms = "algorithms"  # complexity/concept or implementation task
 
 
 class Visibility(str, enum.Enum):
@@ -108,6 +110,8 @@ class Scenario(Base):
     response_template: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
     # Optional Mermaid diagram shown with the problem context.
     context_diagram: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Selected language for language/algorithms exercises ("any" allowed for algorithms).
+    language: Mapped[str | None] = mapped_column(String(40), nullable=True)
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()

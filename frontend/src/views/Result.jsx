@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { api } from "../api.js";
+import Markdown from "../Markdown.jsx";
 import Mermaid from "../Mermaid.jsx";
 
 const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
@@ -29,6 +30,7 @@ function List({ items }) {
 export default function Result({ scenario, result, onNext }) {
   const j = result.judgment;
   const ref = result.reference_solution;
+  const factual = scenario.exercise_type === "language" || scenario.exercise_type === "algorithms";
 
   return (
     <>
@@ -43,6 +45,27 @@ export default function Result({ scenario, result, onNext }) {
           </div>
         </div>
       </div>
+
+      {factual && ref?.summary && (
+        <div className="panel">
+          <div className="section matched">
+            <h3>Reference answer</h3>
+            <Markdown>{ref.summary}</Markdown>
+            {ref.key_points?.length > 0 && (
+              <>
+                <label className="field" style={{ marginTop: 10 }}>Key points</label>
+                <ul>{ref.key_points.map((p, i) => <li key={i}>{p}</li>)}</ul>
+              </>
+            )}
+            {ref.common_mistakes?.length > 0 && (
+              <>
+                <label className="field" style={{ marginTop: 10 }}>Common mistakes</label>
+                <ul>{ref.common_mistakes.map((p, i) => <li key={i}>{p}</li>)}</ul>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {j.requirement_coverage?.length > 0 && (
         <div className="panel">

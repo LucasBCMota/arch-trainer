@@ -44,6 +44,7 @@ def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scen
         difficulty=payload.difficulty,
         focus_area=payload.focus_area,
         exercise_type=payload.exercise_type,
+        language=payload.language,
         title="",
         context="",
         problem="",
@@ -62,20 +63,28 @@ def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scen
 
 def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
     """Worker side: do the LLM generation and fill the row in place."""
-    structured = scenario.exercise_type == ExerciseType.structured
-    data = _generate_json(
-        prompts.SCENARIO_SYSTEM,
-        prompts.scenario_user_prompt(
-            scenario.difficulty.value, scenario.focus_area, structured=structured
-        ),
-        scenario.model,
-    )
+    etype = scenario.exercise_type
+    if etype == ExerciseType.language:
+        system = prompts.LANGUAGE_SYSTEM
+        user_prompt = prompts.language_user_prompt(scenario.language or "Python")
+    elif etype == ExerciseType.algorithms:
+        system = prompts.ALGORITHMS_SYSTEM
+        user_prompt = prompts.algorithms_user_prompt(scenario.language or "any")
+    else:
+        system = prompts.SCENARIO_SYSTEM
+        user_prompt = prompts.scenario_user_prompt(
+            scenario.difficulty.value,
+            scenario.focus_area,
+            structured=(etype == ExerciseType.structured),
+        )
+
+    data = _generate_json(system, user_prompt, scenario.model)
     scenario.title = data["title"]
     scenario.context = data["context"]
     scenario.problem = data["problem"]
     scenario.constraints = data.get("constraints", [])
     scenario.reference_solution = data["reference_solution"]
-    if structured:
+    if etype == ExerciseType.structured:
         scenario.response_template = data.get("response_template", [])
         scenario.context_diagram = data.get("context_diagram") or None
     scenario.status = JobStatus.ready
@@ -113,15 +122,16 @@ def enqueue_session(db: DbSession, payload: SessionCreate, scenario: Scenario, u
 def run_session_job(db: DbSession, session: Session) -> None:
     """Worker side: judge the answer, fill the row, explode pattern gaps."""
     scenario = session.scenario
-    structured = scenario.exercise_type == ExerciseType.structured
+    etype = scenario.exercise_type
     judgment = _generate_json(
         prompts.JUDGE_SYSTEM,
         prompts.judge_user_prompt(
             _scenario_block(scenario),
             json.dumps(scenario.reference_solution, indent=2),
             session.user_answer,
-            structured=structured,
+            structured=(etype == ExerciseType.structured),
             requirements=list(scenario.constraints or []),
+            exercise_type=etype.value,
         ),
         session.model,
     )

@@ -21,6 +21,9 @@ class ReferenceSolution(BaseModel):
     open_questions_for_pm: list[str] = []
     # structured exercises: a Mermaid diagram of the recommended architecture
     diagram_mermaid: str | None = None
+    # language/algorithms exercises: prominent correct-answer detail
+    key_points: list[str] = []
+    common_mistakes: list[str] = []
 
 
 # ---- Judgment shape ----
@@ -52,6 +55,7 @@ class ScenarioCreate(BaseModel):
     difficulty: Difficulty
     focus_area: str = "any"
     exercise_type: ExerciseType = ExerciseType.free_form
+    language: str | None = None  # for language/algorithms exercises
     model: str | None = None  # optional per-request override of LLM_MODEL
 
 
@@ -73,6 +77,7 @@ class ScenarioOut(BaseModel):
     exercise_type: ExerciseType = ExerciseType.free_form
     response_template: list = []  # visible answer-section template (structured only)
     context_diagram: str | None = None
+    language: str | None = None
     visibility: Visibility = Visibility.private
     status: JobStatus = JobStatus.ready
     error: str | None = None

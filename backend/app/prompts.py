@@ -72,6 +72,58 @@ def scenario_user_prompt(difficulty: str, focus_area: str, structured: bool = Fa
     )
 
 
+# ---- Language-gotcha & algorithms exercises (QA-shaped scenario) ----
+QA_JSON_SHAPE = """{
+  "title": "short title",
+  "context": "setup for the question; put any code in a fenced ```code block",
+  "problem": "the exact question or task the candidate must answer",
+  "constraints": ["what a complete answer should address"],
+  "reference_solution": {
+    "summary": "the correct answer / explanation",
+    "key_points": ["the points a correct answer must hit"],
+    "common_mistakes": ["frequent wrong answers / misconceptions"]
+  }
+}"""
+
+LANGUAGE_SYSTEM = (
+    "You are a senior engineer writing a single sharp question about a programming language's "
+    "specific behavior — a subtle gotcha, edge case, or 'what happens when…'. Be concrete: include a "
+    "short, runnable code snippet when it sharpens the question. Output ONLY valid JSON, no markdown "
+    "fences, no preamble."
+)
+
+
+def language_user_prompt(language: str) -> str:
+    return (
+        f"Write one {language} language-behavior question — a subtle gotcha or edge case a strong "
+        f"{language} dev could still get wrong (e.g. mutable default arguments, closure capture, "
+        "integer/reference semantics, evaluation order). The candidate will explain what happens and "
+        f"why.\n\nRespond with JSON in exactly this shape:\n{QA_JSON_SHAPE}"
+    )
+
+
+ALGORITHMS_SYSTEM = (
+    "You are a senior engineer writing one algorithms/data-structures exercise for practice. Output "
+    "ONLY valid JSON, no markdown fences, no preamble."
+)
+
+
+def algorithms_user_prompt(language: str) -> str:
+    lang_line = (
+        "If it is an implementation task, the candidate may use any language."
+        if language in ("", "any", None)
+        else f"If it is an implementation task, target {language}."
+    )
+    return (
+        "Write ONE algorithms/data-structures exercise. Randomly pick ONE of two kinds and say which "
+        "in the problem: (a) a CONCEPT/COMPLEXITY question (e.g. 'what is the Big-O of insert and "
+        "remove in a binary heap, and why'), or (b) an IMPLEMENTATION task (e.g. 'implement a "
+        f"min-heap with push/pop'). {lang_line} The reference_solution.summary must give the correct "
+        "answer (including Big-O where relevant) and, for implementation tasks, a correct reference "
+        f"implementation in a fenced code block.\n\nRespond with JSON in exactly this shape:\n{QA_JSON_SHAPE}"
+    )
+
+
 JUDGE_SYSTEM = (
     "You are a principal engineer judging a candidate's architectural reasoning against a "
     "known-correct reference solution. Be honest and specific — this is for skill-building, not "
@@ -152,6 +204,19 @@ JUDGE_STRUCTURED_JSON_SHAPE = """{
 }"""
 
 
+JUDGE_INTROS = {
+    "language": (
+        "Judge whether the candidate correctly explains the language behavior. Mark what they got "
+        "right and what is wrong or missing versus the reference; correct any misconception plainly."
+    ),
+    "algorithms": (
+        "Judge correctness: for a complexity question, is the Big-O right and the reasoning sound; "
+        "for an implementation, is the code correct (note bugs/edge cases) and what is its actual "
+        "time/space complexity. Compare against the reference."
+    ),
+}
+
+
 def judge_user_prompt(
     scenario_block: str,
     reference_block: str,
@@ -159,7 +224,16 @@ def judge_user_prompt(
     *,
     structured: bool = False,
     requirements: list[str] | None = None,
+    exercise_type: str = "free_form",
 ) -> str:
+    if exercise_type in JUDGE_INTROS:
+        return (
+            f"{JUDGE_INTROS[exercise_type]}\n\n"
+            f"## QUESTION / TASK\n{scenario_block}\n\n"
+            f"## REFERENCE ANSWER (ground truth)\n{reference_block}\n\n"
+            f"## CANDIDATE'S ANSWER\n{candidate_answer}\n\n"
+            f"Respond with JSON in exactly this shape (leave unnamed_patterns empty):\n{JUDGE_JSON_SHAPE}"
+        )
     if structured:
         reqs = "\n".join(f"- {r}" for r in (requirements or [])) or "(none listed)"
         return (
