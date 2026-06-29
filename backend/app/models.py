@@ -116,6 +116,8 @@ class Scenario(Base):
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When the worker marked it 'running' — reclaim keys off this, not created_at.
+    running_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User | None"] = relationship()
     sessions: Mapped[list["Session"]] = relationship(back_populates="scenario")
@@ -137,6 +139,8 @@ class Session(Base):
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When the worker marked it 'running' — reclaim keys off this, not created_at.
+    running_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User | None"] = relationship()
     scenario: Mapped["Scenario"] = relationship(back_populates="sessions")
@@ -171,5 +175,7 @@ class StudyNote(Base):
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When the worker marked it 'running' — reclaim keys off this, not created_at.
+    running_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User | None"] = relationship()

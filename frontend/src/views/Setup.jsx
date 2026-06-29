@@ -110,7 +110,11 @@ export default function Setup({ onScenario, isOwner = true }) {
             <button
               key={val}
               className={`chip ${exerciseType === val ? "on" : ""}`}
-              onClick={() => setExerciseType(val)}
+              onClick={() => {
+                setExerciseType(val);
+                // 'any' is only valid for algorithms — coerce when switching to gotchas.
+                if (val === "language" && language === "any") setLanguage("Python");
+              }}
               title={
                 val === "structured"
                   ? "Templated answer + architecture diagram; graded on per-requirement coverage"

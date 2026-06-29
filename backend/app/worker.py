@@ -14,7 +14,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from . import services
 from .config import settings
@@ -37,8 +37,11 @@ def reclaim_stale_jobs() -> None:
     try:
         dropped = 0
         for model in (Scenario, Session, StudyNote):
+            # Key off when it started running; fall back to created_at for any
+            # legacy 'running' rows that predate the running_since column.
+            since = func.coalesce(model.running_since, model.created_at)
             res = db.execute(
-                delete(model).where(model.status == JobStatus.running, model.created_at < cutoff)
+                delete(model).where(model.status == JobStatus.running, since < cutoff)
             )
             dropped += res.rowcount or 0
         db.commit()
@@ -76,6 +79,7 @@ def _claim(db, model) -> "uuid.UUID | None":  # noqa: F821
         db.rollback()  # release locks held by the SELECT
         return None
     row.status = JobStatus.running
+    row.running_since = datetime.now(timezone.utc)  # reclaim keys off this, not created_at
     db.commit()  # releases the row lock; other workers can move on
     return row.id
 

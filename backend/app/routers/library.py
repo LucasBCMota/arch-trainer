@@ -66,7 +66,8 @@ def list_notes(
 ) -> list[StudyNote]:
     stmt = (
         select(StudyNote)
-        .where(StudyNote.user_id == user.id)  # your own library
+        # your own *finished* library — pending/errored generations are excluded
+        .where(StudyNote.user_id == user.id, StudyNote.status == JobStatus.ready)
         .order_by(StudyNote.created_at.desc())
     )
     if kind is not None:

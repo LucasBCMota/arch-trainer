@@ -65,8 +65,10 @@ def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
     """Worker side: do the LLM generation and fill the row in place."""
     etype = scenario.exercise_type
     if etype == ExerciseType.language:
+        # 'any' is meaningless for a language-specific gotcha — default to Python.
+        lang = scenario.language if scenario.language and scenario.language != "any" else "Python"
         system = prompts.LANGUAGE_SYSTEM
-        user_prompt = prompts.language_user_prompt(scenario.language or "Python")
+        user_prompt = prompts.language_user_prompt(lang)
     elif etype == ExerciseType.algorithms:
         system = prompts.ALGORITHMS_SYSTEM
         user_prompt = prompts.algorithms_user_prompt(scenario.language or "any")
@@ -79,6 +81,12 @@ def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
         )
 
     data = _generate_json(system, user_prompt, scenario.model)
+    missing = [k for k in ("title", "context", "problem", "reference_solution") if k not in data]
+    if missing:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Model response is missing required field(s): {', '.join(missing)}.",
+        )
     scenario.title = data["title"]
     scenario.context = data["context"]
     scenario.problem = data["problem"]
