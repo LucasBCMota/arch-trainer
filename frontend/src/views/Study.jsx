@@ -27,7 +27,9 @@ export default function Study({ isOwner = true }) {
     setError(null);
     try {
       const pending = await api.study(t, model); // queued
-      const ready = await api.poll(() => api.studyNote(pending.id));
+      const ready = await api.poll(() => api.studyNote(pending.id), {
+        where: "the Study library below",
+      });
       setNotes((n) => [ready, ...n]);
       setOpen(ready);
       setTopic("");
@@ -144,12 +146,31 @@ export default function Study({ isOwner = true }) {
         ) : (
           <ul className="note-list">
             {notes.map((n) => (
-              <li key={n.id}>
-                <button className="link" onClick={() => setOpen(n)}>
-                  {n.pinned ? "★ " : ""}
-                  {n.topic}
-                </button>
-                <span className="muted mono"> · {n.model}</span>
+              <li key={n.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ flex: 1 }}>
+                  {n.status === "ready" ? (
+                    <button className="link" onClick={() => setOpen(n)}>
+                      {n.pinned ? "★ " : ""}
+                      {n.topic}
+                    </button>
+                  ) : (
+                    <>
+                      {n.topic}{" "}
+                      <span
+                        className={`pill ${n.status === "error" ? "red" : "yellow"}`}
+                        title={n.error || ""}
+                      >
+                        {n.status === "error" ? "failed" : "generating…"}
+                      </span>
+                    </>
+                  )}
+                  <span className="muted mono"> · {n.model}</span>
+                </span>
+                {n.status !== "ready" && (
+                  <button className="iconbtn" onClick={() => remove(n.id)} title="Delete">
+                    ✕
+                  </button>
+                )}
               </li>
             ))}
           </ul>

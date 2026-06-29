@@ -39,7 +39,9 @@ export default function Answering({ scenario, onResult, onCancel }) {
         user_answer: answer,
         answer_freehand: freehandRef.current,
       });
-      const ready = await api.poll(() => api.getSession(pending.id));
+      const ready = await api.poll(() => api.getSession(pending.id), {
+        where: "the Dashboard session log",
+      });
       onResult(ready);
     } catch (e) {
       setError(e.message);

@@ -106,7 +106,9 @@ function CheatSheets({ isOwner = true }) {
     setError(null);
     try {
       const pending = await api.cheatsheet(topic, model); // queued
-      const n = await api.poll(() => api.studyNote(pending.id));
+      const n = await api.poll(() => api.studyNote(pending.id), {
+        where: "the cheat-sheets list below",
+      });
       setNotes((xs) => [n, ...xs]);
       setTopic("");
     } catch (e) {
@@ -168,21 +170,32 @@ function CheatSheets({ isOwner = true }) {
       {notes.map((n) => (
         <div className="panel" key={n.id}>
           <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3 style={{ margin: 0 }}>{n.topic}</h3>
+            <h3 style={{ margin: 0 }}>
+              {n.topic}{" "}
+              {n.status !== "ready" && (
+                <span className={`pill ${n.status === "error" ? "red" : "yellow"}`} title={n.error || ""}>
+                  {n.status === "error" ? "failed" : "generating…"}
+                </span>
+              )}
+            </h3>
             <div className="row">
-              <button className="ghost" onClick={() => vis(n)}>
-                {n.visibility === "public" ? "🌐" : "🔒"}
-              </button>
-              <button className="ghost" onClick={() => pin(n)}>
-                {n.pinned ? "★" : "☆"}
-              </button>
+              {n.status === "ready" && (
+                <>
+                  <button className="ghost" onClick={() => vis(n)}>
+                    {n.visibility === "public" ? "🌐" : "🔒"}
+                  </button>
+                  <button className="ghost" onClick={() => pin(n)}>
+                    {n.pinned ? "★" : "☆"}
+                  </button>
+                </>
+              )}
               <button className="ghost" onClick={() => remove(n.id)}>
                 delete
               </button>
             </div>
           </div>
           <p className="muted mono" style={{ marginTop: 2 }}>{n.model}</p>
-          <Markdown>{n.content_md}</Markdown>
+          {n.status === "ready" && <Markdown>{n.content_md}</Markdown>}
         </div>
       ))}
     </>

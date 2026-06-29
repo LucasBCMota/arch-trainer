@@ -66,8 +66,9 @@ def list_notes(
 ) -> list[StudyNote]:
     stmt = (
         select(StudyNote)
-        # your own *finished* library — pending/errored generations are excluded
-        .where(StudyNote.user_id == user.id, StudyNote.status == JobStatus.ready)
+        # your full library — pending/errored notes are shown with status so they
+        # can be retried or deleted (never hidden where they'd accumulate unseen).
+        .where(StudyNote.user_id == user.id)
         .order_by(StudyNote.created_at.desc())
     )
     if kind is not None:

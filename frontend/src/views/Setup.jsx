@@ -51,7 +51,9 @@ export default function Setup({ onScenario, isOwner = true }) {
       if (exerciseType === "language" || exerciseType === "algorithms") body.language = language;
       if (model) body.model = model;
       const pending = await api.createScenario(body); // returns immediately
-      const ready = await api.poll(() => api.getScenario(pending.id));
+      const ready = await api.poll(() => api.getScenario(pending.id), {
+        where: '“Unanswered scenarios” below',
+      });
       onScenario(ready);
     } catch (e) {
       setError(e.message);

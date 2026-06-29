@@ -55,8 +55,9 @@ export const api = {
   getSession: (id) => req(`/sessions/${id}`),
   listSessions: () => req("/sessions"),
 
-  // Poll a pending job (scenario/session) until it's ready or errors.
-  poll: async (fetchFn, { interval = 2500, maxMs = 900000 } = {}) => {
+  // Poll a pending job until it's ready or errors. `where` names where the
+  // result will surface if it outlives the poll window (background job).
+  poll: async (fetchFn, { interval = 2500, maxMs = 900000, where = "its list" } = {}) => {
     const start = Date.now();
     while (Date.now() - start < maxMs) {
       const item = await fetchFn();
@@ -64,11 +65,8 @@ export const api = {
       if (item.status === "error") throw new Error(item.error || "The job failed.");
       await new Promise((r) => setTimeout(r, interval));
     }
-    // It keeps running in the background — the result will surface in the
-    // Unanswered-scenarios list (generation) or the Dashboard (judging).
     throw new Error(
-      "Still generating — it's running in the background and will appear under " +
-        "“Unanswered scenarios” (or the Dashboard) when ready."
+      `Still generating — it's running in the background and will appear in ${where} when ready.`
     );
   },
   patternGaps: () => req("/stats/pattern-gaps"),
