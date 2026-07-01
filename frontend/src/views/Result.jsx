@@ -26,10 +26,61 @@ function List({ items }) {
   );
 }
 
-export default function Result({ scenario, result, onNext }) {
+export default function Result({ scenario, result, onNext, onScenario, isOwner = true }) {
   const j = result.judgment;
   const ref = result.reference_solution;
   const factual = scenario.exercise_type === "language" || scenario.exercise_type === "algorithms";
+
+  const [busy, setBusy] = useState(null); // "variation" | "ask"
+  const [followupQ, setFollowupQ] = useState("");
+  const [answer, setAnswer] = useState(null);
+  const [err, setErr] = useState(null);
+
+  async function harderVariation() {
+    setBusy("variation");
+    setErr(null);
+    try {
+      const pending = await api.createScenario({
+        difficulty: scenario.difficulty,
+        focus_area: scenario.focus_area,
+        exercise_type: scenario.exercise_type,
+        language: scenario.language || undefined,
+        variation_of: scenario.id,
+      });
+      const ready = await api.poll(() => api.getScenario(pending.id), {
+        where: "“Unanswered scenarios”",
+      });
+      onScenario(ready);
+    } catch (e) {
+      setErr(e.message);
+      setBusy(null);
+    }
+  }
+
+  async function ask(question) {
+    setBusy("ask");
+    setErr(null);
+    try {
+      const { answer } = await api.followup(scenario.id, question);
+      setAnswer(answer);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function saveAnswerAsNote() {
+    await api
+      .importNote({
+        topic: `Follow-up: ${scenario.title}`,
+        kind: "deep_dive",
+        content_md: answer,
+        source: "follow-up",
+      })
+      .catch(() => {});
+    setAnswer(null);
+  }
 
   const hasVerdict =
     j.matched_points?.length ||
@@ -177,6 +228,45 @@ export default function Result({ scenario, result, onNext }) {
           </>
         )}
       </div>
+
+      {isOwner && (
+        <div className="panel">
+          <h2>Go deeper</h2>
+          <div className="row">
+            <button className="ghost" onClick={harderVariation} disabled={busy === "variation"}>
+              {busy === "variation" ? "Generating…" : "↑ Harder variation"}
+            </button>
+            <button
+              className="ghost"
+              onClick={() => ask("Explain the reference solution in more depth, with the reasoning behind each choice.")}
+              disabled={busy === "ask"}
+            >
+              Explain the reference
+            </button>
+          </div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <input
+              className="text-input"
+              value={followupQ}
+              onChange={(e) => setFollowupQ(e.target.value)}
+              placeholder="Ask a follow-up about this exercise…"
+              onKeyDown={(e) => e.key === "Enter" && followupQ.trim() && ask(followupQ)}
+            />
+            <button className="ghost" onClick={() => ask(followupQ)} disabled={busy === "ask" || !followupQ.trim()}>
+              {busy === "ask" ? "…" : "Ask"}
+            </button>
+          </div>
+          {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+          {answer && (
+            <div className="section" style={{ marginTop: 12 }}>
+              <Markdown>{answer}</Markdown>
+              <button className="ghost" style={{ marginTop: 8 }} onClick={saveAnswerAsNote}>
+                Save as study note
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="row">
         <button className="primary" onClick={onNext}>

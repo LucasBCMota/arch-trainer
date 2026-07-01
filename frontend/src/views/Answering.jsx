@@ -18,11 +18,13 @@ function buildTemplate(scenario) {
   return "";
 }
 
-export default function Answering({ scenario, onResult, onCancel }) {
+export default function Answering({ scenario, onResult, onCancel, isOwner = true }) {
   const structured = scenario.exercise_type === "structured";
   const isCode = scenario.exercise_type === "language" || scenario.exercise_type === "algorithms";
   const [answer, setAnswer] = useState(() => buildTemplate(scenario));
   const [tab, setTab] = useState("write");
+  const [hint, setHint] = useState(null);
+  const [hintBusy, setHintBusy] = useState(false);
   // Captured in a ref (NOT state) so Excalidraw's frequent onChange never
   // triggers a re-render loop (React error #185).
   const freehandRef = useRef(null);
@@ -45,6 +47,18 @@ export default function Answering({ scenario, onResult, onCancel }) {
     } catch (e) {
       setError(e.message);
       setLoading(false);
+    }
+  }
+
+  async function getHint() {
+    setHintBusy(true);
+    try {
+      const { hint } = await api.hint(scenario.id);
+      setHint(hint);
+    } catch (e) {
+      setHint(`⚠ ${e.message}`);
+    } finally {
+      setHintBusy(false);
     }
   }
 
@@ -106,7 +120,19 @@ export default function Answering({ scenario, onResult, onCancel }) {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginBottom: 8 }}>Your answer</h2>
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>Your answer</h2>
+          {isOwner && (
+            <button className="ghost" onClick={getHint} disabled={hintBusy}>
+              {hintBusy ? "…" : "💡 hint"}
+            </button>
+          )}
+        </div>
+        {hint && (
+          <div className="section" style={{ borderColor: "var(--yellow)", marginTop: 0 }}>
+            <Markdown>{hint}</Markdown>
+          </div>
+        )}
         <Tabs tabs={answerTabs} active={tab} onChange={setTab} />
 
         <div style={{ display: tab === "write" ? "block" : "none" }}>

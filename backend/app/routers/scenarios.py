@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session as DbSession
 
-from .. import services
+from .. import llm, prompts, services
 from ..access import assert_owner, assert_visible
 from ..auth import current_user, require_owner
 from ..db import get_db
 from ..models import JobStatus, Scenario, Session, User
 from ..schemas import (
+    FollowupBody,
     PinBody,
     ScenarioCreate,
     ScenarioListItem,
@@ -80,6 +81,42 @@ def pin_scenario(
     db.commit()
     db.refresh(scenario)
     return scenario
+
+
+@router.post("/{scenario_id}/hint")
+def hint(
+    scenario_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    owner: User = Depends(require_owner),  # spends the server's keys
+) -> dict:
+    scenario = assert_owner(db.get(Scenario, scenario_id), owner)
+    text = llm.complete(
+        prompts.HINT_SYSTEM, prompts.hint_user_prompt(services._scenario_block(scenario)),
+        model=scenario.model,
+    )
+    return {"hint": text.strip()}
+
+
+@router.post("/{scenario_id}/followup")
+def followup(
+    scenario_id: uuid.UUID,
+    body: FollowupBody,
+    db: DbSession = Depends(get_db),
+    owner: User = Depends(require_owner),
+) -> dict:
+    import json
+
+    scenario = assert_owner(db.get(Scenario, scenario_id), owner)
+    text = llm.complete(
+        prompts.FOLLOWUP_SYSTEM,
+        prompts.followup_user_prompt(
+            services._scenario_block(scenario),
+            json.dumps(scenario.reference_solution, indent=2),
+            body.question,
+        ),
+        model=scenario.model,
+    )
+    return {"answer": text.strip()}
 
 
 @router.post("/{scenario_id}/visibility", response_model=ScenarioOut)

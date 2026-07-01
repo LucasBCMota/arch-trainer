@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session as DbSession
 
 from . import llm, prompts
+from .access import assert_owner
 from .config import settings
 from .models import (
     ExerciseType,
@@ -38,8 +39,27 @@ def _generate_json(system: str, user_prompt: str, model: str, attempts: int = 2)
     raise last  # type: ignore[misc]
 
 
+def _gen_hint(db: DbSession, payload: ScenarioCreate, user: User) -> str | None:
+    """Build an extra generation instruction from a harder-variation seed or a
+    focus pattern (smart review)."""
+    parts: list[str] = []
+    if payload.focus_pattern:
+        parts.append(
+            "Design the exercise so a strong answer must apply and correctly name this "
+            f"pattern/concept: {payload.focus_pattern}."
+        )
+    if payload.variation_of:
+        parent = assert_owner(db.get(Scenario, payload.variation_of), user)
+        parts.append(
+            "Create a HARDER variation of this exercise — same topic and exercise type, higher "
+            f"difficulty, a different concrete scenario: “{parent.title}” — {parent.problem}"
+        )
+    return "\n".join(parts) or None
+
+
 def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scenario:
     """Create a pending scenario placeholder — no LLM call here."""
+    gen_hint = _gen_hint(db, payload, user)
     scenario = Scenario(
         difficulty=payload.difficulty,
         focus_area=payload.focus_area,
@@ -52,6 +72,7 @@ def enqueue_scenario(db: DbSession, payload: ScenarioCreate, user: User) -> Scen
         reference_solution={},
         response_template=[],
         model=payload.model or settings.llm_model,
+        gen_hint=gen_hint,
         user_id=user.id,
         status=JobStatus.pending,
     )
@@ -79,6 +100,9 @@ def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
             scenario.focus_area,
             structured=(etype == ExerciseType.structured),
         )
+
+    if scenario.gen_hint:
+        user_prompt += f"\n\nAdditional instruction:\n{scenario.gen_hint}"
 
     data = _generate_json(system, user_prompt, scenario.model)
     missing = [k for k in ("title", "context", "problem", "reference_solution") if k not in data]

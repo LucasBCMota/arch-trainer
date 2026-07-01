@@ -57,6 +57,12 @@ class ScenarioCreate(BaseModel):
     exercise_type: ExerciseType = ExerciseType.free_form
     language: str | None = None  # for language/algorithms exercises
     model: str | None = None  # optional per-request override of LLM_MODEL
+    variation_of: uuid.UUID | None = None  # make a harder variation of this scenario
+    focus_pattern: str | None = None  # bias the exercise toward this pattern (smart review)
+
+
+class FollowupBody(BaseModel):
+    question: str
 
 
 class ScenarioOut(BaseModel):

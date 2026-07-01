@@ -50,6 +50,9 @@ export const api = {
     req("/scenarios", { method: "POST", body: JSON.stringify(body) }),
   listScenarios: () => req("/scenarios"),
   getScenario: (id) => req(`/scenarios/${id}`),
+  hint: (id) => req(`/scenarios/${id}/hint`, { method: "POST" }),
+  followup: (id, question) =>
+    req(`/scenarios/${id}/followup`, { method: "POST", body: JSON.stringify({ question }) }),
   createSession: (body) =>
     req("/sessions", { method: "POST", body: JSON.stringify(body) }),
   getSession: (id) => req(`/sessions/${id}`),

@@ -204,6 +204,33 @@ JUDGE_STRUCTURED_JSON_SHAPE = """{
 }"""
 
 
+# ---- Hints & follow-ups (Markdown output, not JSON) ----
+HINT_SYSTEM = (
+    "You are a coach giving a candidate ONE short nudge on a practice exercise. Point them toward the "
+    "key consideration they should think about — do NOT give the answer, name the exact pattern, or "
+    "solve it. One or two sentences. Output plain Markdown."
+)
+
+
+def hint_user_prompt(scenario_block: str) -> str:
+    return f"Exercise:\n{scenario_block}\n\nGive one short hint (no spoilers)."
+
+
+FOLLOWUP_SYSTEM = (
+    "You are a principal engineer answering a candidate's follow-up question about a practice "
+    "exercise and its reference solution. Be direct and concrete. Output Markdown; use fenced code "
+    "blocks for code and ```mermaid for diagrams."
+)
+
+
+def followup_user_prompt(scenario_block: str, reference_block: str, question: str) -> str:
+    return (
+        f"## EXERCISE\n{scenario_block}\n\n"
+        f"## REFERENCE SOLUTION\n{reference_block}\n\n"
+        f"## QUESTION\n{question}\n\nAnswer it."
+    )
+
+
 JUDGE_INTROS = {
     "language": (
         "Judge whether the candidate correctly explains the language behavior. Mark what they got "

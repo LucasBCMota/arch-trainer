@@ -81,9 +81,17 @@ export default function App() {
           )}
           {view === "setup" && <Setup onScenario={startAnswering} isOwner={isOwner} />}
           {view === "answering" && (
-            <Answering scenario={scenario} onResult={showResult} onCancel={reset} />
+            <Answering scenario={scenario} onResult={showResult} onCancel={reset} isOwner={isOwner} />
           )}
-          {view === "result" && <Result scenario={scenario} result={result} onNext={reset} />}
+          {view === "result" && (
+            <Result
+              scenario={scenario}
+              result={result}
+              onNext={reset}
+              onScenario={startAnswering}
+              isOwner={isOwner}
+            />
+          )}
           {view === "study" && <Study isOwner={isOwner} />}
           {view === "artifacts" && <Artifacts isOwner={isOwner} />}
           {view === "public" && <Public />}
