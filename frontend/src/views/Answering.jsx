@@ -4,6 +4,7 @@ import Markdown from "../Markdown.jsx";
 import Mermaid from "../Mermaid.jsx";
 import MermaidBuilder from "../MermaidBuilder.jsx";
 import Tabs from "../Tabs.jsx";
+import { runCode, runnableLang } from "../codeRunner.js";
 
 const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
 const CodeEditor = lazy(() => import("../CodeEditor.jsx"));
@@ -25,6 +26,17 @@ export default function Answering({ scenario, onResult, onCancel, isOwner = true
   const [tab, setTab] = useState("write");
   const [hint, setHint] = useState(null);
   const [hintBusy, setHintBusy] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [output, setOutput] = useState(null);
+  const runLang = isCode ? runnableLang(scenario.language) : null;
+
+  async function runAnswer() {
+    setRunning(true);
+    setOutput(null);
+    const { stdout, error } = await runCode(runLang, answer);
+    setOutput(error ? `⚠ ${error}` : stdout || "(no output)");
+    setRunning(false);
+  }
   // Captured in a ref (NOT state) so Excalidraw's frequent onChange never
   // triggers a re-render loop (React error #185).
   const freehandRef = useRef(null);
@@ -147,6 +159,19 @@ export default function Answering({ scenario, onResult, onCancel, isOwner = true
               placeholder={placeholder}
               autoFocus
             />
+          )}
+          {runLang && (
+            <div style={{ marginTop: 10 }}>
+              <button className="ghost" onClick={runAnswer} disabled={running}>
+                {running ? "Running…" : `▶ Run (${runLang})`}
+              </button>
+              <span className="muted" style={{ marginLeft: 10, fontSize: 12 }}>
+                runs in your browser · not graded
+              </span>
+              {output != null && (
+                <pre className="ref" style={{ marginTop: 8, maxHeight: 260 }}>{output}</pre>
+              )}
+            </div>
           )}
         </div>
 
