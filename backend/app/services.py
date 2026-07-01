@@ -139,6 +139,7 @@ def enqueue_session(db: DbSession, payload: SessionCreate, scenario: Scenario, u
         scenario_id=scenario.id,
         user_answer=payload.user_answer,
         answer_freehand=payload.answer_freehand,  # stored, never judged
+        run_id=payload.run_id,  # interview grouping (Phase D)
         judgment={},
         score=0,
         model=scenario.model,  # judge with the model that generated the scenario

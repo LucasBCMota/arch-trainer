@@ -138,6 +138,10 @@ class Session(Base):
     model: Mapped[str] = mapped_column(String(128))
     # Optional Excalidraw freehand scene — stored for self-comparison, never judged.
     answer_freehand: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Groups a session into a timed interview run (Phase D).
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("interview_runs.id"), nullable=True, index=True
+    )
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()
@@ -161,6 +165,18 @@ class PatternGap(Base):
     what_they_described: Mapped[str] = mapped_column(Text)
 
     session: Mapped["Session"] = relationship(back_populates="pattern_gaps")
+
+
+class InterviewRun(Base):
+    """A timed mock-interview run grouping several sessions (Phase D)."""
+
+    __tablename__ = "interview_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    config: Mapped[dict] = mapped_column(JSONB, default=dict)  # {count, difficulty, types, seconds}
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
 
 
 class PatternReview(Base):

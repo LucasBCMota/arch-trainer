@@ -106,6 +106,7 @@ class SessionCreate(BaseModel):
     scenario_id: uuid.UUID
     user_answer: str
     answer_freehand: dict | None = None  # Excalidraw scene; stored, never judged
+    run_id: uuid.UUID | None = None  # groups the answer into an interview run
 
 
 class SessionOut(BaseModel):
@@ -146,6 +147,36 @@ class ReviewItem(BaseModel):
 
 class MarkReviewBody(BaseModel):
     pattern: str
+
+
+# ---- Interview / timed mode ----
+class InterviewCreate(BaseModel):
+    count: int = 5
+    difficulty: Difficulty = Difficulty.platform
+    exercise_types: list[ExerciseType] = [ExerciseType.free_form]
+    seconds: int = 300  # per-question time limit
+
+
+class InterviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    config: dict
+
+
+class InterviewQuestionResult(BaseModel):
+    title: str
+    score: int
+    one_line_verdict: str = ""
+
+
+class InterviewSummary(BaseModel):
+    run_id: uuid.UUID
+    answered: int
+    average_score: float | None = None
+    per_question: list[InterviewQuestionResult] = []
+    missed_patterns: list[PatternGapStat] = []
 
 
 class ModelsInfo(BaseModel):

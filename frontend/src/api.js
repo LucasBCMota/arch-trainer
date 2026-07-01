@@ -77,6 +77,9 @@ export const api = {
   reviewQueue: () => req("/review/queue"),
   markReviewed: (pattern) =>
     req("/review/mark", { method: "POST", body: JSON.stringify({ pattern }) }),
+  createInterview: (body) =>
+    req("/interview", { method: "POST", body: JSON.stringify(body) }),
+  interviewSummary: (id) => req(`/interview/${id}/summary`),
   exportUrl: "/api/sessions/export",
 
   // study + artifacts
