@@ -74,6 +74,9 @@ export const api = {
   },
   patternGaps: () => req("/stats/pattern-gaps"),
   summary: () => req("/stats/summary"),
+  reviewQueue: () => req("/review/queue"),
+  markReviewed: (pattern) =>
+    req("/review/mark", { method: "POST", body: JSON.stringify({ pattern }) }),
   exportUrl: "/api/sessions/export",
 
   // study + artifacts

@@ -7,6 +7,7 @@ import Dashboard from "./views/Dashboard.jsx";
 import Study from "./views/Study.jsx";
 import Artifacts from "./views/Artifacts.jsx";
 import Public from "./views/Public.jsx";
+import Review from "./views/Review.jsx";
 import Login from "./views/Login.jsx";
 
 export default function App() {
@@ -48,6 +49,9 @@ export default function App() {
           <nav>
             <button className={["setup", "answering", "result"].includes(view) ? "active" : ""} onClick={reset}>
               train
+            </button>
+            <button className={view === "review" ? "active" : ""} onClick={() => setView("review")}>
+              review
             </button>
             <button className={view === "study" ? "active" : ""} onClick={() => setView("study")}>
               study
@@ -92,6 +96,7 @@ export default function App() {
               isOwner={isOwner}
             />
           )}
+          {view === "review" && <Review onScenario={startAnswering} isOwner={isOwner} />}
           {view === "study" && <Study isOwner={isOwner} />}
           {view === "artifacts" && <Artifacts isOwner={isOwner} />}
           {view === "public" && <Public />}

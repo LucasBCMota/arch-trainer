@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -160,6 +161,19 @@ class PatternGap(Base):
     what_they_described: Mapped[str] = mapped_column(Text)
 
     session: Mapped["Session"] = relationship(back_populates="pattern_gaps")
+
+
+class PatternReview(Base):
+    """Per-user review state for a pattern (smart-review scheduling)."""
+
+    __tablename__ = "pattern_reviews"
+    __table_args__ = (UniqueConstraint("user_id", "pattern_name", name="uq_pattern_review"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    pattern_name: Mapped[str] = mapped_column(Text)
+    last_reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    review_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class StudyNote(Base):

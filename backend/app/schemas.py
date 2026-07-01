@@ -137,6 +137,17 @@ class PatternGapStat(BaseModel):
     count: int
 
 
+class ReviewItem(BaseModel):
+    pattern_name: str
+    miss_count: int
+    last_reviewed_at: datetime | None = None
+    review_count: int = 0
+
+
+class MarkReviewBody(BaseModel):
+    pattern: str
+
+
 class ModelsInfo(BaseModel):
     current: str
     available: list[str]
