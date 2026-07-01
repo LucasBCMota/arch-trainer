@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import Markdown from "../Markdown.jsx";
 import Mermaid from "../Mermaid.jsx";
 import MermaidBuilder from "../MermaidBuilder.jsx";
+import Tabs from "../Tabs.jsx";
 
 const ExcalidrawCanvas = lazy(() => import("../ExcalidrawCanvas.jsx"));
 const CodeEditor = lazy(() => import("../CodeEditor.jsx"));
@@ -21,9 +22,7 @@ export default function Answering({ scenario, onResult, onCancel }) {
   const structured = scenario.exercise_type === "structured";
   const isCode = scenario.exercise_type === "language" || scenario.exercise_type === "algorithms";
   const [answer, setAnswer] = useState(() => buildTemplate(scenario));
-  const [showPreview, setShowPreview] = useState(structured);
-  const [showFreehand, setShowFreehand] = useState(false);
-  const [showBuilder, setShowBuilder] = useState(false);
+  const [tab, setTab] = useState("write");
   // Captured in a ref (NOT state) so Excalidraw's frequent onChange never
   // triggers a re-render loop (React error #185).
   const freehandRef = useRef(null);
@@ -53,6 +52,13 @@ export default function Answering({ scenario, onResult, onCancel }) {
     ? "Fill in each section. Put your architecture in a ```mermaid block under Diagram."
     : "Walk through your design: key decisions, tradeoffs, failure modes, open questions…";
 
+  const answerTabs = [
+    { key: "write", label: "Write" },
+    { key: "preview", label: "Preview" },
+    { key: "diagram", label: "Diagram builder", hidden: isCode },
+    { key: "freehand", label: "Freehand", hidden: isCode },
+  ];
+
   if (loading) {
     return (
       <div className="panel" style={{ textAlign: "center", padding: "48px 22px" }}>
@@ -69,20 +75,19 @@ export default function Answering({ scenario, onResult, onCancel }) {
   return (
     <>
       <div className="panel">
-        <h2>
+        <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>
           {scenario.difficulty}-level · {scenario.focus_area}
           {structured ? " · structured" : ""}
-        </h2>
-        <h3 style={{ marginTop: 0, fontSize: 20 }}>{scenario.title}</h3>
+          {scenario.language ? ` · ${scenario.language}` : ""}
+        </div>
+        <h3 style={{ margin: "6px 0 8px", fontSize: 21 }}>{scenario.title}</h3>
         <p className="muted">{scenario.context}</p>
         <p>
           <strong>Problem.</strong> {scenario.problem}
         </p>
         {scenario.context_diagram && (
           <>
-            <label className="field" style={{ marginTop: 14 }}>
-              Given system
-            </label>
+            <label className="field" style={{ marginTop: 14 }}>Given system</label>
             <Mermaid chart={scenario.context_diagram} />
           </>
         )}
@@ -101,34 +106,10 @@ export default function Answering({ scenario, onResult, onCancel }) {
       </div>
 
       <div className="panel">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h2 style={{ margin: 0 }}>Your answer</h2>
-          <div className="row">
-            {!isCode && (
-              <button className="ghost" onClick={() => setShowBuilder((s) => !s)}>
-                {showBuilder ? "hide builder" : "diagram builder"}
-              </button>
-            )}
-            <button className="ghost" onClick={() => setShowPreview((s) => !s)}>
-              {showPreview ? "hide preview" : "show preview"}
-            </button>
-            {!isCode && (
-              <button className="ghost" onClick={() => setShowFreehand((s) => !s)}>
-                {showFreehand ? "hide freehand" : "freehand sketch"}
-              </button>
-            )}
-          </div>
-        </div>
+        <h2 style={{ marginBottom: 8 }}>Your answer</h2>
+        <Tabs tabs={answerTabs} active={tab} onChange={setTab} />
 
-        {!isCode && showBuilder && (
-          <MermaidBuilder
-            onInsert={(code) =>
-              setAnswer((a) => `${a.trimEnd()}\n\n\`\`\`mermaid\n${code}\n\`\`\`\n`)
-            }
-          />
-        )}
-
-        <div className={showPreview ? "answer-split" : ""} style={{ marginTop: 12 }}>
+        <div style={{ display: tab === "write" ? "block" : "none" }}>
           {isCode ? (
             <Suspense fallback={<textarea value={answer} onChange={(e) => setAnswer(e.target.value)} />}>
               <CodeEditor value={answer} onChange={setAnswer} language={scenario.language} />
@@ -139,24 +120,36 @@ export default function Answering({ scenario, onResult, onCancel }) {
               onChange={(e) => setAnswer(e.target.value)}
               placeholder={placeholder}
               autoFocus
-              style={{ minHeight: structured ? 380 : 320 }}
             />
-          )}
-          {showPreview && (
-            <div className="preview">
-              <Markdown>{answer}</Markdown>
-            </div>
           )}
         </div>
 
-        {showFreehand && (
-          <div style={{ marginTop: 12 }}>
+        {tab === "preview" && (
+          <div className="preview">
+            <Markdown>{answer}</Markdown>
+          </div>
+        )}
+
+        {!isCode && tab === "diagram" && (
+          <MermaidBuilder
+            onInsert={(code) => {
+              setAnswer((a) => `${a.trimEnd()}\n\n\`\`\`mermaid\n${code}\n\`\`\`\n`);
+              setTab("write");
+            }}
+          />
+        )}
+
+        {!isCode && tab === "freehand" && (
+          <div>
             <p className="muted" style={{ fontSize: 13 }}>
               Optional sketchpad to think — <b>not graded</b>, but saved next to the reference diagram
-              so you can compare. The graded diagram is the Mermaid in your answer.
+              on the result screen. The graded diagram is the Mermaid in your answer.
             </p>
             <Suspense fallback={<p className="muted">Loading canvas…</p>}>
-              <ExcalidrawCanvas onScene={(s) => (freehandRef.current = s)} />
+              <ExcalidrawCanvas
+                initialData={freehandRef.current}
+                onScene={(s) => (freehandRef.current = s)}
+              />
             </Suspense>
           </div>
         )}

@@ -76,8 +76,8 @@ export default function Setup({ onScenario, isOwner = true }) {
   }
 
   return (
-    <>
-      <div className="panel">
+    <div className="setup-cols">
+      <div className="panel" style={{ marginBottom: 0 }}>
         <h2>New exercise</h2>
 
         <label className="field">Difficulty</label>
@@ -168,6 +168,7 @@ export default function Setup({ onScenario, isOwner = true }) {
         {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
       </div>
 
+      <div>
       {unanswered.length > 0 && (
         <div className="panel">
           <h2>Unanswered scenarios</h2>
@@ -224,6 +225,7 @@ export default function Setup({ onScenario, isOwner = true }) {
           </table>
         </div>
       )}
-    </>
+      </div>
+    </div>
   );
 }

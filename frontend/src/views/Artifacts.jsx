@@ -2,29 +2,20 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import Markdown from "../Markdown.jsx";
 import ModelInput, { useModelSelection } from "../ModelInput.jsx";
+import Tabs from "../Tabs.jsx";
 import { ImportForm } from "./Study.jsx";
 
 const TABS = [
-  ["references", "Reference designs"],
-  ["cheatsheets", "Cheat-sheets"],
-  ["pinned", "Pinned"],
+  { key: "references", label: "Reference designs" },
+  { key: "cheatsheets", label: "Cheat-sheets" },
+  { key: "pinned", label: "Pinned" },
 ];
 
 export default function Artifacts({ isOwner = true }) {
   const [tab, setTab] = useState("references");
   return (
     <>
-      <div className="tabs">
-        {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            className={`tab ${tab === key ? "on" : ""}`}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={TABS} active={tab} onChange={setTab} />
       {tab === "references" && <References />}
       {tab === "cheatsheets" && <CheatSheets isOwner={isOwner} />}
       {tab === "pinned" && <Pinned />}
