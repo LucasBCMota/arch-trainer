@@ -119,6 +119,9 @@ def run_scenario_job(db: DbSession, scenario: Scenario) -> None:
     if etype == ExerciseType.structured:
         scenario.response_template = data.get("response_template", [])
         scenario.context_diagram = data.get("context_diagram") or None
+    if etype == ExerciseType.algorithms:
+        scenario.code_entry = data.get("code_entry") or None
+        scenario.code_tests = data.get("code_tests") or None
     scenario.status = JobStatus.ready
     scenario.error = None
     db.commit()

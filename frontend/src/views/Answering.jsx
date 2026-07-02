@@ -22,19 +22,38 @@ function buildTemplate(scenario) {
 export default function Answering({ scenario, onResult, onCancel, isOwner = true }) {
   const structured = scenario.exercise_type === "structured";
   const isCode = scenario.exercise_type === "language" || scenario.exercise_type === "algorithms";
-  const [answer, setAnswer] = useState(() => buildTemplate(scenario));
+  const [answer, setAnswer] = useState(() => scenario.code_entry || buildTemplate(scenario));
   const [tab, setTab] = useState("write");
   const [hint, setHint] = useState(null);
   const [hintBusy, setHintBusy] = useState(false);
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState(null);
+  const [testResult, setTestResult] = useState(null); // {passed,total}
   const runLang = isCode ? runnableLang(scenario.language) : null;
+  const hasTests = !!(runLang && scenario.code_tests);
 
   async function runAnswer() {
     setRunning(true);
     setOutput(null);
     const { stdout, error } = await runCode(runLang, answer);
     setOutput(error ? `⚠ ${error}` : stdout || "(no output)");
+    setRunning(false);
+  }
+
+  async function runTests() {
+    setRunning(true);
+    setOutput(null);
+    const combined = `${answer}\n\n${scenario.code_tests}`;
+    const { stdout, error } = await runCode(runLang, combined, { execTimeoutMs: 8000 });
+    if (error) {
+      setOutput(`⚠ ${error}`);
+      setTestResult(null);
+      setRunning(false);
+      return;
+    }
+    const m = (stdout || "").match(/__TESTS__\s+(\d+)\s+(\d+)/);
+    setTestResult(m ? { passed: +m[1], total: +m[2] } : null);
+    setOutput((stdout || "").replace(/^__TESTS__.*$/m, "").trim() || "(no output)");
     setRunning(false);
   }
   // Captured in a ref (NOT state) so Excalidraw's frequent onChange never
@@ -47,9 +66,13 @@ export default function Answering({ scenario, onResult, onCancel, isOwner = true
     setLoading(true);
     setError(null);
     try {
+      // Include objective test results so the judge weighs them.
+      const finalAnswer = testResult
+        ? `${answer}\n\n## Automated test results\n${testResult.passed}/${testResult.total} tests passed.`
+        : answer;
       const pending = await api.createSession({
         scenario_id: scenario.id,
-        user_answer: answer,
+        user_answer: finalAnswer,
         answer_freehand: freehandRef.current,
       });
       const ready = await api.poll(() => api.getSession(pending.id), {
@@ -162,12 +185,28 @@ export default function Answering({ scenario, onResult, onCancel, isOwner = true
           )}
           {runLang && (
             <div style={{ marginTop: 10 }}>
-              <button className="ghost" onClick={runAnswer} disabled={running}>
-                {running ? "Running…" : `▶ Run (${runLang})`}
-              </button>
-              <span className="muted" style={{ marginLeft: 10, fontSize: 12 }}>
-                runs in your browser · not graded
-              </span>
+              <div className="row">
+                <button className="ghost" onClick={runAnswer} disabled={running}>
+                  {running ? "Running…" : `▶ Run (${runLang})`}
+                </button>
+                {hasTests && (
+                  <button className="ghost" onClick={runTests} disabled={running}>
+                    ✓ Run tests
+                  </button>
+                )}
+                {testResult && (
+                  <span
+                    className={`pill ${
+                      testResult.passed === testResult.total ? "green" : testResult.passed ? "yellow" : "red"
+                    }`}
+                  >
+                    {testResult.passed}/{testResult.total} passed
+                  </span>
+                )}
+                <span className="muted" style={{ fontSize: 12 }}>
+                  runs in your browser{hasTests ? " · results count toward judging" : " · not graded"}
+                </span>
+              </div>
               {output != null && (
                 <pre className="ref" style={{ marginTop: 8, maxHeight: 260 }}>{output}</pre>
               )}

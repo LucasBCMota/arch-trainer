@@ -115,6 +115,10 @@ class Scenario(Base):
     language: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # Extra generation instruction (e.g. "harder variation of …" / "target pattern …").
     gen_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Runnable algorithm exercises (Python/JS): a required signature stub + a test
+    # harness appended after the candidate's code. Both visible (tests are given).
+    code_entry: Mapped[str | None] = mapped_column(Text, nullable=True)
+    code_tests: Mapped[str | None] = mapped_column(Text, nullable=True)
     user_id: Mapped[uuid.UUID | None] = _owner_id_col()
     visibility: Mapped[Visibility] = _visibility_col()
     status: Mapped[JobStatus] = _status_col()

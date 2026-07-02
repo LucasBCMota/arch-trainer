@@ -114,13 +114,26 @@ def algorithms_user_prompt(language: str) -> str:
         if language in ("", "any", None)
         else f"If it is an implementation task, target {language}."
     )
+    runnable = (language or "").lower() in ("python", "javascript")
+    tests_addendum = ""
+    if runnable:
+        tests_addendum = (
+            "\n\nIf (and only if) this is an IMPLEMENTATION task, ALSO add two top-level string "
+            'fields:\n- "code_entry": a minimal starter stub the candidate fills in (the required '
+            f"signature/skeleton in {language}, with a TODO body).\n"
+            '- "code_tests": a SELF-CONTAINED test harness in ' + language + " that will be appended "
+            "AFTER the candidate's code and run together. It must call the candidate's implementation "
+            "on several cases, print `PASS`/`FAIL: <detail>` per case, and finish with EXACTLY one "
+            "line: `__TESTS__ <passed> <total>`. Do not redefine the candidate's functions."
+        )
     return (
         "Write ONE algorithms/data-structures exercise. Randomly pick ONE of two kinds and say which "
         "in the problem: (a) a CONCEPT/COMPLEXITY question (e.g. 'what is the Big-O of insert and "
         "remove in a binary heap, and why'), or (b) an IMPLEMENTATION task (e.g. 'implement a "
         f"min-heap with push/pop'). {lang_line} The reference_solution.summary must give the correct "
         "answer (including Big-O where relevant) and, for implementation tasks, a correct reference "
-        f"implementation in a fenced code block.\n\nRespond with JSON in exactly this shape:\n{QA_JSON_SHAPE}"
+        f"implementation in a fenced code block.{tests_addendum}\n\n"
+        f"Respond with JSON in exactly this shape:\n{QA_JSON_SHAPE}"
     )
 
 

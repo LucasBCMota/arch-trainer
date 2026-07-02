@@ -84,6 +84,8 @@ class ScenarioOut(BaseModel):
     response_template: list = []  # visible answer-section template (structured only)
     context_diagram: str | None = None
     language: str | None = None
+    code_entry: str | None = None  # required signature stub (runnable algo exercises)
+    code_tests: str | None = None  # test harness appended after the candidate's code
     visibility: Visibility = Visibility.private
     status: JobStatus = JobStatus.ready
     error: str | None = None
